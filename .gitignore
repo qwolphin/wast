@@ -1,0 +1,28 @@
+*.orig
+*.pyc
+*.mo
+*.db
+*.pot
+*.map
+
+*.pyo
+.cache/
+
+**/.mypy_cache/
+**/__pycache__/
+
+**/.coverage
+
+# vim files
+*~
+*.swp
+*.swo
+
+#pyCharm files
+.idea
+.vscode
+.pythonconfig
+**/venv
+**/*.key
+**/*.cer
+.env.local

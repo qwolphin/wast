@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  main:
+    build:
+      context: ./src
+      #target: requirements
+    command: 'sleep infinity'
+    volumes:
+      - "./src:/app"

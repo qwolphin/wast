@@ -1,0 +1,3599 @@
+{
+  "name": "Python",
+  "dfns": [
+    {
+      "name": "mod",
+      "value": {
+        "types": [
+          {
+            "name": "Module",
+            "fields": [
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "type_ignore",
+                "name": "type_ignores",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Interactive",
+            "fields": [
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Expression",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "body",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "FunctionType",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "argtypes",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "returns",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "stmt",
+      "value": {
+        "types": [
+          {
+            "name": "FunctionDef",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "arguments",
+                "name": "args",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "decorator_list",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "returns",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "AsyncFunctionDef",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "arguments",
+                "name": "args",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "decorator_list",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "returns",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "ClassDef",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "bases",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "keyword",
+                "name": "keywords",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "decorator_list",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Return",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Delete",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "targets",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Assign",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "targets",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "AugAssign",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "target",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "operator",
+                "name": "op",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "AnnAssign",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "target",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "annotation",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "int",
+                "name": "simple",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "For",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "target",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "iter",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "orelse",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "AsyncFor",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "target",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "iter",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "orelse",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "While",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "test",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "orelse",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "If",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "test",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "orelse",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "With",
+            "fields": [
+              {
+                "type": "withitem",
+                "name": "items",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "AsyncWith",
+            "fields": [
+              {
+                "type": "withitem",
+                "name": "items",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "type_comment",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Match",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "subject",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "match_case",
+                "name": "cases",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Raise",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "exc",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "expr",
+                "name": "cause",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Try",
+            "fields": [
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "excepthandler",
+                "name": "handlers",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "orelse",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "stmt",
+                "name": "finalbody",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Assert",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "test",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "msg",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Import",
+            "fields": [
+              {
+                "type": "alias",
+                "name": "names",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "ImportFrom",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "module",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "alias",
+                "name": "names",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "int",
+                "name": "level",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Global",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "names",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Nonlocal",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "names",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Expr",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Pass",
+            "fields": []
+          },
+          {
+            "name": "Break",
+            "fields": []
+          },
+          {
+            "name": "Continue",
+            "fields": []
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "expr",
+      "value": {
+        "types": [
+          {
+            "name": "BoolOp",
+            "fields": [
+              {
+                "type": "boolop",
+                "name": "op",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "values",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "NamedExpr",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "target",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "BinOp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "left",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "operator",
+                "name": "op",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "right",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "UnaryOp",
+            "fields": [
+              {
+                "type": "unaryop",
+                "name": "op",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "operand",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Lambda",
+            "fields": [
+              {
+                "type": "arguments",
+                "name": "args",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "body",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "IfExp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "test",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "body",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "orelse",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Dict",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "keys",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "values",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Set",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elts",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "ListComp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elt",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "comprehension",
+                "name": "generators",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "SetComp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elt",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "comprehension",
+                "name": "generators",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "DictComp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "key",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "comprehension",
+                "name": "generators",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "GeneratorExp",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elt",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "comprehension",
+                "name": "generators",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Await",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Yield",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "YieldFrom",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Compare",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "left",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "cmpop",
+                "name": "ops",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "comparators",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Call",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "func",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "args",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "keyword",
+                "name": "keywords",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "FormattedValue",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "int",
+                "name": "conversion",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "expr",
+                "name": "format_spec",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "JoinedStr",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "values",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Constant",
+            "fields": [
+              {
+                "type": "constant",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "kind",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "Attribute",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "identifier",
+                "name": "attr",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Subscript",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr",
+                "name": "slice",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Starred",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Name",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "id",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "List",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elts",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Tuple",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "elts",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "expr_context",
+                "name": "ctx",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "Slice",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "lower",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "expr",
+                "name": "upper",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "expr",
+                "name": "step",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "expr_context",
+      "value": {
+        "types": [
+          {
+            "name": "Load",
+            "fields": []
+          },
+          {
+            "name": "Store",
+            "fields": []
+          },
+          {
+            "name": "Del",
+            "fields": []
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "boolop",
+      "value": {
+        "types": [
+          {
+            "name": "And",
+            "fields": []
+          },
+          {
+            "name": "Or",
+            "fields": []
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "operator",
+      "value": {
+        "types": [
+          {
+            "name": "Add",
+            "fields": []
+          },
+          {
+            "name": "Sub",
+            "fields": []
+          },
+          {
+            "name": "Mult",
+            "fields": []
+          },
+          {
+            "name": "MatMult",
+            "fields": []
+          },
+          {
+            "name": "Div",
+            "fields": []
+          },
+          {
+            "name": "Mod",
+            "fields": []
+          },
+          {
+            "name": "Pow",
+            "fields": []
+          },
+          {
+            "name": "LShift",
+            "fields": []
+          },
+          {
+            "name": "RShift",
+            "fields": []
+          },
+          {
+            "name": "BitOr",
+            "fields": []
+          },
+          {
+            "name": "BitXor",
+            "fields": []
+          },
+          {
+            "name": "BitAnd",
+            "fields": []
+          },
+          {
+            "name": "FloorDiv",
+            "fields": []
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "unaryop",
+      "value": {
+        "types": [
+          {
+            "name": "Invert",
+            "fields": []
+          },
+          {
+            "name": "Not",
+            "fields": []
+          },
+          {
+            "name": "UAdd",
+            "fields": []
+          },
+          {
+            "name": "USub",
+            "fields": []
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "cmpop",
+      "value": {
+        "types": [
+          {
+            "name": "Eq",
+            "fields": []
+          },
+          {
+            "name": "NotEq",
+            "fields": []
+          },
+          {
+            "name": "Lt",
+            "fields": []
+          },
+          {
+            "name": "LtE",
+            "fields": []
+          },
+          {
+            "name": "Gt",
+            "fields": []
+          },
+          {
+            "name": "GtE",
+            "fields": []
+          },
+          {
+            "name": "Is",
+            "fields": []
+          },
+          {
+            "name": "IsNot",
+            "fields": []
+          },
+          {
+            "name": "In",
+            "fields": []
+          },
+          {
+            "name": "NotIn",
+            "fields": []
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "comprehension",
+      "value": {
+        "fields": [
+          {
+            "type": "expr",
+            "name": "target",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "iter",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "ifs",
+            "seq": true,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "is_async",
+            "seq": false,
+            "opt": false
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "excepthandler",
+      "value": {
+        "types": [
+          {
+            "name": "ExceptHandler",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "type",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "stmt",
+                "name": "body",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "arguments",
+      "value": {
+        "fields": [
+          {
+            "type": "arg",
+            "name": "posonlyargs",
+            "seq": true,
+            "opt": false
+          },
+          {
+            "type": "arg",
+            "name": "args",
+            "seq": true,
+            "opt": false
+          },
+          {
+            "type": "arg",
+            "name": "vararg",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "arg",
+            "name": "kwonlyargs",
+            "seq": true,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "kw_defaults",
+            "seq": true,
+            "opt": false
+          },
+          {
+            "type": "arg",
+            "name": "kwarg",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "expr",
+            "name": "defaults",
+            "seq": true,
+            "opt": false
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "arg",
+      "value": {
+        "fields": [
+          {
+            "type": "identifier",
+            "name": "arg",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "annotation",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "string",
+            "name": "type_comment",
+            "seq": false,
+            "opt": true
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "keyword",
+      "value": {
+        "fields": [
+          {
+            "type": "identifier",
+            "name": "arg",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "expr",
+            "name": "value",
+            "seq": false,
+            "opt": false
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "alias",
+      "value": {
+        "fields": [
+          {
+            "type": "identifier",
+            "name": "name",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "identifier",
+            "name": "asname",
+            "seq": false,
+            "opt": true
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "withitem",
+      "value": {
+        "fields": [
+          {
+            "type": "expr",
+            "name": "context_expr",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "optional_vars",
+            "seq": false,
+            "opt": true
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "match_case",
+      "value": {
+        "fields": [
+          {
+            "type": "pattern",
+            "name": "pattern",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "expr",
+            "name": "guard",
+            "seq": false,
+            "opt": true
+          },
+          {
+            "type": "stmt",
+            "name": "body",
+            "seq": true,
+            "opt": false
+          }
+        ],
+        "attributes": []
+      }
+    },
+    {
+      "name": "pattern",
+      "value": {
+        "types": [
+          {
+            "name": "MatchValue",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "MatchSingleton",
+            "fields": [
+              {
+                "type": "constant",
+                "name": "value",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "MatchSequence",
+            "fields": [
+              {
+                "type": "pattern",
+                "name": "patterns",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "MatchMapping",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "keys",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "pattern",
+                "name": "patterns",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "identifier",
+                "name": "rest",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "MatchClass",
+            "fields": [
+              {
+                "type": "expr",
+                "name": "cls",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "pattern",
+                "name": "patterns",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "identifier",
+                "name": "kwd_attrs",
+                "seq": true,
+                "opt": false
+              },
+              {
+                "type": "pattern",
+                "name": "kwd_patterns",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          },
+          {
+            "name": "MatchStar",
+            "fields": [
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "MatchAs",
+            "fields": [
+              {
+                "type": "pattern",
+                "name": "pattern",
+                "seq": false,
+                "opt": true
+              },
+              {
+                "type": "identifier",
+                "name": "name",
+                "seq": false,
+                "opt": true
+              }
+            ]
+          },
+          {
+            "name": "MatchOr",
+            "fields": [
+              {
+                "type": "pattern",
+                "name": "patterns",
+                "seq": true,
+                "opt": false
+              }
+            ]
+          }
+        ],
+        "attributes": [
+          {
+            "type": "int",
+            "name": "lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "col_offset",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_lineno",
+            "seq": false,
+            "opt": false
+          },
+          {
+            "type": "int",
+            "name": "end_col_offset",
+            "seq": false,
+            "opt": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "type_ignore",
+      "value": {
+        "types": [
+          {
+            "name": "TypeIgnore",
+            "fields": [
+              {
+                "type": "int",
+                "name": "lineno",
+                "seq": false,
+                "opt": false
+              },
+              {
+                "type": "string",
+                "name": "tag",
+                "seq": false,
+                "opt": false
+              }
+            ]
+          }
+        ],
+        "attributes": []
+      }
+    }
+  ],
+  "types": {
+    "mod": {
+      "types": [
+        {
+          "name": "Module",
+          "fields": [
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "type_ignore",
+              "name": "type_ignores",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Interactive",
+          "fields": [
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Expression",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "body",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "FunctionType",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "argtypes",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "returns",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        }
+      ],
+      "attributes": []
+    },
+    "stmt": {
+      "types": [
+        {
+          "name": "FunctionDef",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "arguments",
+              "name": "args",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "decorator_list",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "returns",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "AsyncFunctionDef",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "arguments",
+              "name": "args",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "decorator_list",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "returns",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "ClassDef",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "bases",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "keyword",
+              "name": "keywords",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "decorator_list",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Return",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "targets",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Assign",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "targets",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "AugAssign",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "target",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "operator",
+              "name": "op",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "AnnAssign",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "target",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "annotation",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "int",
+              "name": "simple",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "For",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "target",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "iter",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "orelse",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "AsyncFor",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "target",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "iter",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "orelse",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "While",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "test",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "orelse",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "If",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "test",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "orelse",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "With",
+          "fields": [
+            {
+              "type": "withitem",
+              "name": "items",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "AsyncWith",
+          "fields": [
+            {
+              "type": "withitem",
+              "name": "items",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "type_comment",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Match",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "subject",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "match_case",
+              "name": "cases",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Raise",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "exc",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "expr",
+              "name": "cause",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Try",
+          "fields": [
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "excepthandler",
+              "name": "handlers",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "orelse",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "stmt",
+              "name": "finalbody",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Assert",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "test",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "msg",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Import",
+          "fields": [
+            {
+              "type": "alias",
+              "name": "names",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "ImportFrom",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "module",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "alias",
+              "name": "names",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "int",
+              "name": "level",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Global",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "names",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Nonlocal",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "names",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Expr",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Pass",
+          "fields": []
+        },
+        {
+          "name": "Break",
+          "fields": []
+        },
+        {
+          "name": "Continue",
+          "fields": []
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "expr": {
+      "types": [
+        {
+          "name": "BoolOp",
+          "fields": [
+            {
+              "type": "boolop",
+              "name": "op",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "values",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "NamedExpr",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "target",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "BinOp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "left",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "operator",
+              "name": "op",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "right",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "UnaryOp",
+          "fields": [
+            {
+              "type": "unaryop",
+              "name": "op",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "operand",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Lambda",
+          "fields": [
+            {
+              "type": "arguments",
+              "name": "args",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "body",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "IfExp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "test",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "body",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "orelse",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Dict",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "keys",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "values",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Set",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elts",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "ListComp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elt",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "comprehension",
+              "name": "generators",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "SetComp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elt",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "comprehension",
+              "name": "generators",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "DictComp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "key",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "comprehension",
+              "name": "generators",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "GeneratorExp",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elt",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "comprehension",
+              "name": "generators",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Await",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Yield",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "YieldFrom",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Compare",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "left",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "cmpop",
+              "name": "ops",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "comparators",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Call",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "func",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "args",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "keyword",
+              "name": "keywords",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "FormattedValue",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "int",
+              "name": "conversion",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "expr",
+              "name": "format_spec",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "JoinedStr",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "values",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Constant",
+          "fields": [
+            {
+              "type": "constant",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "kind",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "Attribute",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "identifier",
+              "name": "attr",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Subscript",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr",
+              "name": "slice",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Starred",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "id",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "List",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elts",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Tuple",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "elts",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "expr_context",
+              "name": "ctx",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "Slice",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "lower",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "expr",
+              "name": "upper",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "expr",
+              "name": "step",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "expr_context": {
+      "types": [
+        {
+          "name": "Load",
+          "fields": []
+        },
+        {
+          "name": "Store",
+          "fields": []
+        },
+        {
+          "name": "Del",
+          "fields": []
+        }
+      ],
+      "attributes": []
+    },
+    "boolop": {
+      "types": [
+        {
+          "name": "And",
+          "fields": []
+        },
+        {
+          "name": "Or",
+          "fields": []
+        }
+      ],
+      "attributes": []
+    },
+    "operator": {
+      "types": [
+        {
+          "name": "Add",
+          "fields": []
+        },
+        {
+          "name": "Sub",
+          "fields": []
+        },
+        {
+          "name": "Mult",
+          "fields": []
+        },
+        {
+          "name": "MatMult",
+          "fields": []
+        },
+        {
+          "name": "Div",
+          "fields": []
+        },
+        {
+          "name": "Mod",
+          "fields": []
+        },
+        {
+          "name": "Pow",
+          "fields": []
+        },
+        {
+          "name": "LShift",
+          "fields": []
+        },
+        {
+          "name": "RShift",
+          "fields": []
+        },
+        {
+          "name": "BitOr",
+          "fields": []
+        },
+        {
+          "name": "BitXor",
+          "fields": []
+        },
+        {
+          "name": "BitAnd",
+          "fields": []
+        },
+        {
+          "name": "FloorDiv",
+          "fields": []
+        }
+      ],
+      "attributes": []
+    },
+    "unaryop": {
+      "types": [
+        {
+          "name": "Invert",
+          "fields": []
+        },
+        {
+          "name": "Not",
+          "fields": []
+        },
+        {
+          "name": "UAdd",
+          "fields": []
+        },
+        {
+          "name": "USub",
+          "fields": []
+        }
+      ],
+      "attributes": []
+    },
+    "cmpop": {
+      "types": [
+        {
+          "name": "Eq",
+          "fields": []
+        },
+        {
+          "name": "NotEq",
+          "fields": []
+        },
+        {
+          "name": "Lt",
+          "fields": []
+        },
+        {
+          "name": "LtE",
+          "fields": []
+        },
+        {
+          "name": "Gt",
+          "fields": []
+        },
+        {
+          "name": "GtE",
+          "fields": []
+        },
+        {
+          "name": "Is",
+          "fields": []
+        },
+        {
+          "name": "IsNot",
+          "fields": []
+        },
+        {
+          "name": "In",
+          "fields": []
+        },
+        {
+          "name": "NotIn",
+          "fields": []
+        }
+      ],
+      "attributes": []
+    },
+    "comprehension": {
+      "fields": [
+        {
+          "type": "expr",
+          "name": "target",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "iter",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "ifs",
+          "seq": true,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "is_async",
+          "seq": false,
+          "opt": false
+        }
+      ],
+      "attributes": []
+    },
+    "excepthandler": {
+      "types": [
+        {
+          "name": "ExceptHandler",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "type",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "stmt",
+              "name": "body",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "arguments": {
+      "fields": [
+        {
+          "type": "arg",
+          "name": "posonlyargs",
+          "seq": true,
+          "opt": false
+        },
+        {
+          "type": "arg",
+          "name": "args",
+          "seq": true,
+          "opt": false
+        },
+        {
+          "type": "arg",
+          "name": "vararg",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "arg",
+          "name": "kwonlyargs",
+          "seq": true,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "kw_defaults",
+          "seq": true,
+          "opt": false
+        },
+        {
+          "type": "arg",
+          "name": "kwarg",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "expr",
+          "name": "defaults",
+          "seq": true,
+          "opt": false
+        }
+      ],
+      "attributes": []
+    },
+    "arg": {
+      "fields": [
+        {
+          "type": "identifier",
+          "name": "arg",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "annotation",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "string",
+          "name": "type_comment",
+          "seq": false,
+          "opt": true
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "keyword": {
+      "fields": [
+        {
+          "type": "identifier",
+          "name": "arg",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "expr",
+          "name": "value",
+          "seq": false,
+          "opt": false
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "alias": {
+      "fields": [
+        {
+          "type": "identifier",
+          "name": "name",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "identifier",
+          "name": "asname",
+          "seq": false,
+          "opt": true
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": true
+        }
+      ]
+    },
+    "withitem": {
+      "fields": [
+        {
+          "type": "expr",
+          "name": "context_expr",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "optional_vars",
+          "seq": false,
+          "opt": true
+        }
+      ],
+      "attributes": []
+    },
+    "match_case": {
+      "fields": [
+        {
+          "type": "pattern",
+          "name": "pattern",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "expr",
+          "name": "guard",
+          "seq": false,
+          "opt": true
+        },
+        {
+          "type": "stmt",
+          "name": "body",
+          "seq": true,
+          "opt": false
+        }
+      ],
+      "attributes": []
+    },
+    "pattern": {
+      "types": [
+        {
+          "name": "MatchValue",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "MatchSingleton",
+          "fields": [
+            {
+              "type": "constant",
+              "name": "value",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "MatchSequence",
+          "fields": [
+            {
+              "type": "pattern",
+              "name": "patterns",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "MatchMapping",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "keys",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "pattern",
+              "name": "patterns",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "identifier",
+              "name": "rest",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "MatchClass",
+          "fields": [
+            {
+              "type": "expr",
+              "name": "cls",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "pattern",
+              "name": "patterns",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "identifier",
+              "name": "kwd_attrs",
+              "seq": true,
+              "opt": false
+            },
+            {
+              "type": "pattern",
+              "name": "kwd_patterns",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        },
+        {
+          "name": "MatchStar",
+          "fields": [
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "MatchAs",
+          "fields": [
+            {
+              "type": "pattern",
+              "name": "pattern",
+              "seq": false,
+              "opt": true
+            },
+            {
+              "type": "identifier",
+              "name": "name",
+              "seq": false,
+              "opt": true
+            }
+          ]
+        },
+        {
+          "name": "MatchOr",
+          "fields": [
+            {
+              "type": "pattern",
+              "name": "patterns",
+              "seq": true,
+              "opt": false
+            }
+          ]
+        }
+      ],
+      "attributes": [
+        {
+          "type": "int",
+          "name": "lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "col_offset",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_lineno",
+          "seq": false,
+          "opt": false
+        },
+        {
+          "type": "int",
+          "name": "end_col_offset",
+          "seq": false,
+          "opt": false
+        }
+      ]
+    },
+    "type_ignore": {
+      "types": [
+        {
+          "name": "TypeIgnore",
+          "fields": [
+            {
+              "type": "int",
+              "name": "lineno",
+              "seq": false,
+              "opt": false
+            },
+            {
+              "type": "string",
+              "name": "tag",
+              "seq": false,
+              "opt": false
+            }
+          ]
+        }
+      ],
+      "attributes": []
+    }
+  }
+}
