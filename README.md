@@ -7,5 +7,5 @@ Code generation focused AST for Python
 # Build
 
 ```
-traceback-with-variables render.py > result.py && black result.py && python3 result.py
+traceback-with-variables render.py > wast.py && black wast.py && python3 wast.py
 ```

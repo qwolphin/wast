@@ -1,10 +1,10 @@
-
 import graphviz
-dot = graphviz.Digraph(comment='Python ASDL', engine='sfdp')
-dot.node('string')
-dot.node('identifier')
-dot.node('int')
-dot.node('constant')
+
+dot = graphviz.Digraph(comment="Python ASDL", engine="sfdp")
+dot.node("string")
+dot.node("identifier")
+dot.node("int")
+dot.node("constant")
 for t in dfns:
     dot.node(t.name)
     if isinstance(t.value, asdl.Product):
@@ -19,4 +19,4 @@ for t in dfns:
     else:
         assert False
 
-dot.render('asdl_graph')
+dot.render("asdl_graph")

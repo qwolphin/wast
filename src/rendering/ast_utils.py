@@ -16,10 +16,24 @@ def mk_attr_ib(**kwargs):
         keywords=[ast.keyword(arg=k, value=v) for k, v in kwargs.items()],
     )
 
+
 def mk_io_validator(val):
     return ast.Call(
         func=mk_aa("ProxyInstanceOfValidator"),
-        args=[ast.Lambda(args=ast.arguments(posonlyargs=[], args=[], vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]), body=val)],
+        args=[
+            ast.Lambda(
+                args=ast.arguments(
+                    posonlyargs=[],
+                    args=[],
+                    vararg=None,
+                    kwonlyargs=[],
+                    kw_defaults=[],
+                    kwarg=None,
+                    defaults=[],
+                ),
+                body=val,
+            )
+        ],
         keywords=[],
     )
 
@@ -30,6 +44,7 @@ def mk_opt_validator(*args):
         args=args,
         keywords=[],
     )
+
 
 def mk_seq_validator(*args):
     if len(args) > 1:
@@ -45,6 +60,7 @@ def mk_seq_validator(*args):
         args=[and_ed],
         keywords=[],
     )
+
 
 def mk_classvar_type(inner):
     return ast.Subscript(
