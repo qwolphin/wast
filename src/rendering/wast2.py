@@ -47,7 +47,7 @@ class ProxyInstanceOfValidator(object):
 class mod(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Module(mod):
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     type_ignores: Sequence[type_ignore] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : type_ignore)), default=list, repr=False)
@@ -59,7 +59,7 @@ class Module(mod):
     def _from_builtin(cls, node):
         return cls(body=node_to_wast(node.body), type_ignores=node_to_wast(node.type_ignores))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Interactive(mod):
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
 
@@ -70,7 +70,7 @@ class Interactive(mod):
     def _from_builtin(cls, node):
         return cls(body=node_to_wast(node.body))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Expression(mod):
     body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
@@ -81,69 +81,69 @@ class Expression(mod):
     def _from_builtin(cls, node):
         return cls(body=node_to_wast(node.body))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class FunctionType(mod):
-    argtypes: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     returns: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    argtypes: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
 
     def _to_builtin(self):
-        return ast.FunctionType(argtypes=wast_to_node(self.argtypes), returns=wast_to_node(self.returns))
+        return ast.FunctionType(returns=wast_to_node(self.returns), argtypes=wast_to_node(self.argtypes))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(argtypes=node_to_wast(node.argtypes), returns=node_to_wast(node.returns))
+        return cls(returns=node_to_wast(node.returns), argtypes=node_to_wast(node.argtypes))
 
 class stmt(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class FunctionDef(stmt):
-    name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : arguments)])
+    name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     decorator_list: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     returns: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.FunctionDef(name=wast_to_node(self.name), args=wast_to_node(self.args), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list), returns=wast_to_node(self.returns), type_comment=wast_to_node(self.type_comment))
+        return ast.FunctionDef(args=wast_to_node(self.args), name=wast_to_node(self.name), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list), returns=wast_to_node(self.returns), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(name=node_to_wast(node.name), args=node_to_wast(node.args), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list), returns=node_to_wast(node.returns), type_comment=node_to_wast(node.type_comment))
+        return cls(args=node_to_wast(node.args), name=node_to_wast(node.name), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list), returns=node_to_wast(node.returns), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class AsyncFunctionDef(stmt):
-    name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : arguments)])
+    name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     decorator_list: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     returns: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.AsyncFunctionDef(name=wast_to_node(self.name), args=wast_to_node(self.args), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list), returns=wast_to_node(self.returns), type_comment=wast_to_node(self.type_comment))
+        return ast.AsyncFunctionDef(args=wast_to_node(self.args), name=wast_to_node(self.name), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list), returns=wast_to_node(self.returns), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(name=node_to_wast(node.name), args=node_to_wast(node.args), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list), returns=node_to_wast(node.returns), type_comment=node_to_wast(node.type_comment))
+        return cls(args=node_to_wast(node.args), name=node_to_wast(node.name), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list), returns=node_to_wast(node.returns), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class ClassDef(stmt):
     name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     bases: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
-    keywords: Sequence[keyword] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : keyword)), default=list)
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     decorator_list: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
+    keywords: Sequence[keyword] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : keyword)), default=list)
 
     def _to_builtin(self):
-        return ast.ClassDef(name=wast_to_node(self.name), bases=wast_to_node(self.bases), keywords=wast_to_node(self.keywords), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list))
+        return ast.ClassDef(name=wast_to_node(self.name), bases=wast_to_node(self.bases), body=wast_to_node(self.body), decorator_list=wast_to_node(self.decorator_list), keywords=wast_to_node(self.keywords))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(name=node_to_wast(node.name), bases=node_to_wast(node.bases), keywords=node_to_wast(node.keywords), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list))
+        return cls(name=node_to_wast(node.name), bases=node_to_wast(node.bases), body=node_to_wast(node.body), decorator_list=node_to_wast(node.decorator_list), keywords=node_to_wast(node.keywords))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Return(stmt):
     value: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
@@ -154,7 +154,7 @@ class Return(stmt):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Delete(stmt):
     targets: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
 
@@ -165,77 +165,77 @@ class Delete(stmt):
     def _from_builtin(cls, node):
         return cls(targets=node_to_wast(node.targets))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Assign(stmt):
+    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     targets: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.Assign(targets=wast_to_node(self.targets), value=wast_to_node(self.value), type_comment=wast_to_node(self.type_comment))
+        return ast.Assign(value=wast_to_node(self.value), targets=wast_to_node(self.targets), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(targets=node_to_wast(node.targets), value=node_to_wast(node.value), type_comment=node_to_wast(node.type_comment))
+        return cls(value=node_to_wast(node.value), targets=node_to_wast(node.targets), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class AugAssign(stmt):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     op: operator = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : operator)])
+    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
     def _to_builtin(self):
-        return ast.AugAssign(target=wast_to_node(self.target), op=wast_to_node(self.op), value=wast_to_node(self.value))
+        return ast.AugAssign(op=wast_to_node(self.op), target=wast_to_node(self.target), value=wast_to_node(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=node_to_wast(node.target), op=node_to_wast(node.op), value=node_to_wast(node.value))
+        return cls(op=node_to_wast(node.op), target=node_to_wast(node.target), value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class AnnAssign(stmt):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     annotation: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    value: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     simple: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : int)])
+    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    value: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
     def _to_builtin(self):
-        return ast.AnnAssign(target=wast_to_node(self.target), annotation=wast_to_node(self.annotation), value=wast_to_node(self.value), simple=wast_to_node(self.simple))
+        return ast.AnnAssign(annotation=wast_to_node(self.annotation), simple=wast_to_node(self.simple), target=wast_to_node(self.target), value=wast_to_node(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=node_to_wast(node.target), annotation=node_to_wast(node.annotation), value=node_to_wast(node.value), simple=node_to_wast(node.simple))
+        return cls(annotation=node_to_wast(node.annotation), simple=node_to_wast(node.simple), target=node_to_wast(node.target), value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class For(stmt):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     orelse: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.For(target=wast_to_node(self.target), iter=wast_to_node(self.iter), body=wast_to_node(self.body), orelse=wast_to_node(self.orelse), type_comment=wast_to_node(self.type_comment))
+        return ast.For(iter=wast_to_node(self.iter), target=wast_to_node(self.target), body=wast_to_node(self.body), orelse=wast_to_node(self.orelse), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=node_to_wast(node.target), iter=node_to_wast(node.iter), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse), type_comment=node_to_wast(node.type_comment))
+        return cls(iter=node_to_wast(node.iter), target=node_to_wast(node.target), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class AsyncFor(stmt):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     orelse: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.AsyncFor(target=wast_to_node(self.target), iter=wast_to_node(self.iter), body=wast_to_node(self.body), orelse=wast_to_node(self.orelse), type_comment=wast_to_node(self.type_comment))
+        return ast.AsyncFor(iter=wast_to_node(self.iter), target=wast_to_node(self.target), body=wast_to_node(self.body), orelse=wast_to_node(self.orelse), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=node_to_wast(node.target), iter=node_to_wast(node.iter), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse), type_comment=node_to_wast(node.type_comment))
+        return cls(iter=node_to_wast(node.iter), target=node_to_wast(node.target), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class While(stmt):
     test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
@@ -248,7 +248,7 @@ class While(stmt):
     def _from_builtin(cls, node):
         return cls(test=node_to_wast(node.test), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class If(stmt):
     test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
@@ -261,33 +261,33 @@ class If(stmt):
     def _from_builtin(cls, node):
         return cls(test=node_to_wast(node.test), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class With(stmt):
-    items: Sequence[withitem] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : withitem)), default=list)
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
+    items: Sequence[withitem] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : withitem)), default=list)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.With(items=wast_to_node(self.items), body=wast_to_node(self.body), type_comment=wast_to_node(self.type_comment))
+        return ast.With(body=wast_to_node(self.body), items=wast_to_node(self.items), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(items=node_to_wast(node.items), body=node_to_wast(node.body), type_comment=node_to_wast(node.type_comment))
+        return cls(body=node_to_wast(node.body), items=node_to_wast(node.items), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class AsyncWith(stmt):
-    items: Sequence[withitem] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : withitem)), default=list)
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
+    items: Sequence[withitem] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : withitem)), default=list)
     type_comment: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.AsyncWith(items=wast_to_node(self.items), body=wast_to_node(self.body), type_comment=wast_to_node(self.type_comment))
+        return ast.AsyncWith(body=wast_to_node(self.body), items=wast_to_node(self.items), type_comment=wast_to_node(self.type_comment))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(items=node_to_wast(node.items), body=node_to_wast(node.body), type_comment=node_to_wast(node.type_comment))
+        return cls(body=node_to_wast(node.body), items=node_to_wast(node.items), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Match(stmt):
     subject: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     cases: Sequence[match_case] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : match_case)), default=list)
@@ -299,33 +299,33 @@ class Match(stmt):
     def _from_builtin(cls, node):
         return cls(subject=node_to_wast(node.subject), cases=node_to_wast(node.cases))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Raise(stmt):
-    exc: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     cause: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
+    exc: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
     def _to_builtin(self):
-        return ast.Raise(exc=wast_to_node(self.exc), cause=wast_to_node(self.cause))
+        return ast.Raise(cause=wast_to_node(self.cause), exc=wast_to_node(self.exc))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(exc=node_to_wast(node.exc), cause=node_to_wast(node.cause))
+        return cls(cause=node_to_wast(node.cause), exc=node_to_wast(node.exc))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Try(stmt):
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
+    finalbody: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
     handlers: Sequence[excepthandler] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : excepthandler)), default=list)
     orelse: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
-    finalbody: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
 
     def _to_builtin(self):
-        return ast.Try(body=wast_to_node(self.body), handlers=wast_to_node(self.handlers), orelse=wast_to_node(self.orelse), finalbody=wast_to_node(self.finalbody))
+        return ast.Try(body=wast_to_node(self.body), finalbody=wast_to_node(self.finalbody), handlers=wast_to_node(self.handlers), orelse=wast_to_node(self.orelse))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(body=node_to_wast(node.body), handlers=node_to_wast(node.handlers), orelse=node_to_wast(node.orelse), finalbody=node_to_wast(node.finalbody))
+        return cls(body=node_to_wast(node.body), finalbody=node_to_wast(node.finalbody), handlers=node_to_wast(node.handlers), orelse=node_to_wast(node.orelse))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Assert(stmt):
     test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     msg: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
@@ -337,7 +337,7 @@ class Assert(stmt):
     def _from_builtin(cls, node):
         return cls(test=node_to_wast(node.test), msg=node_to_wast(node.msg))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Import(stmt):
     names: Sequence[alias] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : alias)), default=list)
 
@@ -348,20 +348,20 @@ class Import(stmt):
     def _from_builtin(cls, node):
         return cls(names=node_to_wast(node.names))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class ImportFrom(stmt):
+    level: Optional[int] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : int)]), default=None)
     module: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
     names: Sequence[alias] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : alias)), default=list)
-    level: Optional[int] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : int)]), default=None)
 
     def _to_builtin(self):
-        return ast.ImportFrom(module=wast_to_node(self.module), names=wast_to_node(self.names), level=wast_to_node(self.level))
+        return ast.ImportFrom(level=wast_to_node(self.level), module=wast_to_node(self.module), names=wast_to_node(self.names))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(module=node_to_wast(node.module), names=node_to_wast(node.names), level=node_to_wast(node.level))
+        return cls(level=node_to_wast(node.level), module=node_to_wast(node.module), names=node_to_wast(node.names))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Global(stmt):
     names: Sequence[str] = attrs.ib(validator=attrs.validators.deep_iterable(attrs.validators.and_(ProxyInstanceOfValidator(lambda : str), validate_identifier)), default=list)
 
@@ -372,7 +372,7 @@ class Global(stmt):
     def _from_builtin(cls, node):
         return cls(names=node_to_wast(node.names))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Nonlocal(stmt):
     names: Sequence[str] = attrs.ib(validator=attrs.validators.deep_iterable(attrs.validators.and_(ProxyInstanceOfValidator(lambda : str), validate_identifier)), default=list)
 
@@ -383,7 +383,7 @@ class Nonlocal(stmt):
     def _from_builtin(cls, node):
         return cls(names=node_to_wast(node.names))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Expr(stmt):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
@@ -394,7 +394,7 @@ class Expr(stmt):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Pass(stmt):
 
     def _to_builtin(self):
@@ -404,7 +404,7 @@ class Pass(stmt):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Break(stmt):
 
     def _to_builtin(self):
@@ -414,7 +414,7 @@ class Break(stmt):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Continue(stmt):
 
     def _to_builtin(self):
@@ -427,7 +427,7 @@ class Continue(stmt):
 class expr(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class BoolOp(expr):
     op: boolop = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : boolop)])
     values: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
@@ -439,7 +439,7 @@ class BoolOp(expr):
     def _from_builtin(cls, node):
         return cls(op=node_to_wast(node.op), values=node_to_wast(node.values))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class NamedExpr(expr):
     target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
@@ -451,7 +451,7 @@ class NamedExpr(expr):
     def _from_builtin(cls, node):
         return cls(target=node_to_wast(node.target), value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class BinOp(expr):
     left: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     op: operator = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : operator)])
@@ -464,7 +464,7 @@ class BinOp(expr):
     def _from_builtin(cls, node):
         return cls(left=node_to_wast(node.left), op=node_to_wast(node.op), right=node_to_wast(node.right))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class UnaryOp(expr):
     op: unaryop = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : unaryop)])
     operand: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
@@ -476,7 +476,7 @@ class UnaryOp(expr):
     def _from_builtin(cls, node):
         return cls(op=node_to_wast(node.op), operand=node_to_wast(node.operand))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Lambda(expr):
     args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : arguments)])
     body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
@@ -488,20 +488,20 @@ class Lambda(expr):
     def _from_builtin(cls, node):
         return cls(args=node_to_wast(node.args), body=node_to_wast(node.body))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class IfExp(expr):
-    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     orelse: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
     def _to_builtin(self):
-        return ast.IfExp(test=wast_to_node(self.test), body=wast_to_node(self.body), orelse=wast_to_node(self.orelse))
+        return ast.IfExp(body=wast_to_node(self.body), orelse=wast_to_node(self.orelse), test=wast_to_node(self.test))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(test=node_to_wast(node.test), body=node_to_wast(node.body), orelse=node_to_wast(node.orelse))
+        return cls(body=node_to_wast(node.body), orelse=node_to_wast(node.orelse), test=node_to_wast(node.test))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Dict(expr):
     keys: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     values: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
@@ -513,7 +513,7 @@ class Dict(expr):
     def _from_builtin(cls, node):
         return cls(keys=node_to_wast(node.keys), values=node_to_wast(node.values))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Set(expr):
     elts: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
 
@@ -524,7 +524,7 @@ class Set(expr):
     def _from_builtin(cls, node):
         return cls(elts=node_to_wast(node.elts))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class ListComp(expr):
     elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     generators: Sequence[comprehension] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : comprehension)), default=list)
@@ -536,7 +536,7 @@ class ListComp(expr):
     def _from_builtin(cls, node):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class SetComp(expr):
     elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     generators: Sequence[comprehension] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : comprehension)), default=list)
@@ -548,7 +548,7 @@ class SetComp(expr):
     def _from_builtin(cls, node):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class DictComp(expr):
     key: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
@@ -561,7 +561,7 @@ class DictComp(expr):
     def _from_builtin(cls, node):
         return cls(key=node_to_wast(node.key), value=node_to_wast(node.value), generators=node_to_wast(node.generators))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class GeneratorExp(expr):
     elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     generators: Sequence[comprehension] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : comprehension)), default=list)
@@ -573,7 +573,7 @@ class GeneratorExp(expr):
     def _from_builtin(cls, node):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Await(expr):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
@@ -584,7 +584,7 @@ class Await(expr):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Yield(expr):
     value: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
@@ -595,7 +595,7 @@ class Yield(expr):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class YieldFrom(expr):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
@@ -606,20 +606,20 @@ class YieldFrom(expr):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Compare(expr):
     left: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    ops: Sequence[cmpop] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : cmpop)), default=list)
     comparators: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
+    ops: Sequence[cmpop] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : cmpop)), default=list)
 
     def _to_builtin(self):
-        return ast.Compare(left=wast_to_node(self.left), ops=wast_to_node(self.ops), comparators=wast_to_node(self.comparators))
+        return ast.Compare(left=wast_to_node(self.left), comparators=wast_to_node(self.comparators), ops=wast_to_node(self.ops))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(left=node_to_wast(node.left), ops=node_to_wast(node.ops), comparators=node_to_wast(node.comparators))
+        return cls(left=node_to_wast(node.left), comparators=node_to_wast(node.comparators), ops=node_to_wast(node.ops))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Call(expr):
     func: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     args: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
@@ -632,7 +632,7 @@ class Call(expr):
     def _from_builtin(cls, node):
         return cls(func=node_to_wast(node.func), args=node_to_wast(node.args), keywords=node_to_wast(node.keywords))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class FormattedValue(expr):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     conversion: Optional[int] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : int)]), default=None)
@@ -645,7 +645,7 @@ class FormattedValue(expr):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value), conversion=node_to_wast(node.conversion), format_spec=node_to_wast(node.format_spec))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class JoinedStr(expr):
     values: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
 
@@ -656,7 +656,7 @@ class JoinedStr(expr):
     def _from_builtin(cls, node):
         return cls(values=node_to_wast(node.values))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Constant(expr):
     value: Any = attrs.ib(validator=[])
     kind: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str)]), default=None)
@@ -668,97 +668,91 @@ class Constant(expr):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value), kind=node_to_wast(node.kind))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Attribute(expr):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     attr: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
-
-    def _to_builtin(self):
-        return ast.Attribute(value=wast_to_node(self.value), attr=wast_to_node(self.attr), ctx=wast_to_node(self.ctx))
-
-    @classmethod
-    def _from_builtin(cls, node):
-        return cls(value=node_to_wast(node.value), attr=node_to_wast(node.attr), ctx=node_to_wast(node.ctx))
-
-@attrs.s(kw_only=True)
-class Subscript(expr):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    slice: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.Subscript(value=wast_to_node(self.value), slice=wast_to_node(self.slice), ctx=wast_to_node(self.ctx))
+        return ast.Attribute(attr=wast_to_node(self.attr), value=wast_to_node(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=node_to_wast(node.value), slice=node_to_wast(node.slice), ctx=node_to_wast(node.ctx))
+        return cls(attr=node_to_wast(node.attr), value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
+class Subscript(expr):
+    slice: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+
+    def _to_builtin(self):
+        return ast.Subscript(slice=wast_to_node(self.slice), value=wast_to_node(self.value))
+
+    @classmethod
+    def _from_builtin(cls, node):
+        return cls(slice=node_to_wast(node.slice), value=node_to_wast(node.value))
+
+@attrs.s(hash=True, slots=True, eq=True)
 class Starred(expr):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.Starred(value=wast_to_node(self.value), ctx=wast_to_node(self.ctx))
+        return ast.Starred(value=wast_to_node(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=node_to_wast(node.value), ctx=node_to_wast(node.ctx))
+        return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Name(expr):
     id: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.Name(id=wast_to_node(self.id), ctx=wast_to_node(self.ctx))
+        return ast.Name(id=wast_to_node(self.id))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(id=node_to_wast(node.id), ctx=node_to_wast(node.ctx))
+        return cls(id=node_to_wast(node.id))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class List(expr):
     elts: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.List(elts=wast_to_node(self.elts), ctx=wast_to_node(self.ctx))
+        return ast.List(elts=wast_to_node(self.elts))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=node_to_wast(node.elts), ctx=node_to_wast(node.ctx))
+        return cls(elts=node_to_wast(node.elts))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Tuple(expr):
     elts: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
-    ctx: Optional[expr_context] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr_context)]), default=None, repr=False)
 
     def _to_builtin(self):
-        return ast.Tuple(elts=wast_to_node(self.elts), ctx=wast_to_node(self.ctx))
+        return ast.Tuple(elts=wast_to_node(self.elts))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=node_to_wast(node.elts), ctx=node_to_wast(node.ctx))
+        return cls(elts=node_to_wast(node.elts))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Slice(expr):
     lower: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
-    upper: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     step: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
+    upper: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
     def _to_builtin(self):
-        return ast.Slice(lower=wast_to_node(self.lower), upper=wast_to_node(self.upper), step=wast_to_node(self.step))
+        return ast.Slice(lower=wast_to_node(self.lower), step=wast_to_node(self.step), upper=wast_to_node(self.upper))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(lower=node_to_wast(node.lower), upper=node_to_wast(node.upper), step=node_to_wast(node.step))
+        return cls(lower=node_to_wast(node.lower), step=node_to_wast(node.step), upper=node_to_wast(node.upper))
 
 class expr_context(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Load(expr_context):
 
     def _to_builtin(self):
@@ -768,7 +762,7 @@ class Load(expr_context):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Store(expr_context):
 
     def _to_builtin(self):
@@ -778,7 +772,7 @@ class Store(expr_context):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Del(expr_context):
 
     def _to_builtin(self):
@@ -791,7 +785,7 @@ class Del(expr_context):
 class boolop(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class And(boolop):
 
     def _to_builtin(self):
@@ -801,7 +795,7 @@ class And(boolop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Or(boolop):
 
     def _to_builtin(self):
@@ -814,7 +808,7 @@ class Or(boolop):
 class operator(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Add(operator):
 
     def _to_builtin(self):
@@ -824,7 +818,7 @@ class Add(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Sub(operator):
 
     def _to_builtin(self):
@@ -834,7 +828,7 @@ class Sub(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Mult(operator):
 
     def _to_builtin(self):
@@ -844,7 +838,7 @@ class Mult(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatMult(operator):
 
     def _to_builtin(self):
@@ -854,7 +848,7 @@ class MatMult(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Div(operator):
 
     def _to_builtin(self):
@@ -864,7 +858,7 @@ class Div(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Mod(operator):
 
     def _to_builtin(self):
@@ -874,7 +868,7 @@ class Mod(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Pow(operator):
 
     def _to_builtin(self):
@@ -884,7 +878,7 @@ class Pow(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class LShift(operator):
 
     def _to_builtin(self):
@@ -894,7 +888,7 @@ class LShift(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class RShift(operator):
 
     def _to_builtin(self):
@@ -904,7 +898,7 @@ class RShift(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class BitOr(operator):
 
     def _to_builtin(self):
@@ -914,7 +908,7 @@ class BitOr(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class BitXor(operator):
 
     def _to_builtin(self):
@@ -924,7 +918,7 @@ class BitXor(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class BitAnd(operator):
 
     def _to_builtin(self):
@@ -934,7 +928,7 @@ class BitAnd(operator):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class FloorDiv(operator):
 
     def _to_builtin(self):
@@ -947,7 +941,7 @@ class FloorDiv(operator):
 class unaryop(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Invert(unaryop):
 
     def _to_builtin(self):
@@ -957,7 +951,7 @@ class Invert(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Not(unaryop):
 
     def _to_builtin(self):
@@ -967,7 +961,7 @@ class Not(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class UAdd(unaryop):
 
     def _to_builtin(self):
@@ -977,7 +971,7 @@ class UAdd(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class USub(unaryop):
 
     def _to_builtin(self):
@@ -990,7 +984,7 @@ class USub(unaryop):
 class cmpop(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Eq(cmpop):
 
     def _to_builtin(self):
@@ -1000,7 +994,7 @@ class Eq(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class NotEq(cmpop):
 
     def _to_builtin(self):
@@ -1010,7 +1004,7 @@ class NotEq(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Lt(cmpop):
 
     def _to_builtin(self):
@@ -1020,7 +1014,7 @@ class Lt(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class LtE(cmpop):
 
     def _to_builtin(self):
@@ -1030,7 +1024,7 @@ class LtE(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Gt(cmpop):
 
     def _to_builtin(self):
@@ -1040,7 +1034,7 @@ class Gt(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class GtE(cmpop):
 
     def _to_builtin(self):
@@ -1050,7 +1044,7 @@ class GtE(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class Is(cmpop):
 
     def _to_builtin(self):
@@ -1060,7 +1054,7 @@ class Is(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class IsNot(cmpop):
 
     def _to_builtin(self):
@@ -1070,7 +1064,7 @@ class IsNot(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class In(cmpop):
 
     def _to_builtin(self):
@@ -1080,7 +1074,7 @@ class In(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class NotIn(cmpop):
 
     def _to_builtin(self):
@@ -1090,54 +1084,54 @@ class NotIn(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class comprehension(Node):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    ifs: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     is_async: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : int)])
+    iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    ifs: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
 
     def _to_builtin(self):
-        return ast.comprehension(target=wast_to_node(self.target), iter=wast_to_node(self.iter), ifs=wast_to_node(self.ifs), is_async=wast_to_node(self.is_async))
+        return ast.comprehension(is_async=wast_to_node(self.is_async), iter=wast_to_node(self.iter), target=wast_to_node(self.target), ifs=wast_to_node(self.ifs))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=node_to_wast(node.target), iter=node_to_wast(node.iter), ifs=node_to_wast(node.ifs), is_async=node_to_wast(node.is_async))
+        return cls(is_async=node_to_wast(node.is_async), iter=node_to_wast(node.iter), target=node_to_wast(node.target), ifs=node_to_wast(node.ifs))
 
 class excepthandler(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class ExceptHandler(excepthandler):
-    type: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
-    name: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
+    name: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
+    type: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
     def _to_builtin(self):
-        return ast.ExceptHandler(type=wast_to_node(self.type), name=wast_to_node(self.name), body=wast_to_node(self.body))
+        return ast.ExceptHandler(body=wast_to_node(self.body), name=wast_to_node(self.name), type=wast_to_node(self.type))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(type=node_to_wast(node.type), name=node_to_wast(node.name), body=node_to_wast(node.body))
+        return cls(body=node_to_wast(node.body), name=node_to_wast(node.name), type=node_to_wast(node.type))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class arguments(Node):
-    posonlyargs: Sequence[arg] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : arg)), default=list)
     args: Sequence[arg] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : arg)), default=list)
-    vararg: Optional[arg] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : arg)]), default=None)
-    kwonlyargs: Sequence[arg] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : arg)), default=list)
+    defaults: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     kw_defaults: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     kwarg: Optional[arg] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : arg)]), default=None)
-    defaults: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
+    kwonlyargs: Sequence[arg] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : arg)), default=list)
+    posonlyargs: Sequence[arg] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : arg)), default=list)
+    vararg: Optional[arg] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : arg)]), default=None)
 
     def _to_builtin(self):
-        return ast.arguments(posonlyargs=wast_to_node(self.posonlyargs), args=wast_to_node(self.args), vararg=wast_to_node(self.vararg), kwonlyargs=wast_to_node(self.kwonlyargs), kw_defaults=wast_to_node(self.kw_defaults), kwarg=wast_to_node(self.kwarg), defaults=wast_to_node(self.defaults))
+        return ast.arguments(args=wast_to_node(self.args), defaults=wast_to_node(self.defaults), kw_defaults=wast_to_node(self.kw_defaults), kwarg=wast_to_node(self.kwarg), kwonlyargs=wast_to_node(self.kwonlyargs), posonlyargs=wast_to_node(self.posonlyargs), vararg=wast_to_node(self.vararg))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(posonlyargs=node_to_wast(node.posonlyargs), args=node_to_wast(node.args), vararg=node_to_wast(node.vararg), kwonlyargs=node_to_wast(node.kwonlyargs), kw_defaults=node_to_wast(node.kw_defaults), kwarg=node_to_wast(node.kwarg), defaults=node_to_wast(node.defaults))
+        return cls(args=node_to_wast(node.args), defaults=node_to_wast(node.defaults), kw_defaults=node_to_wast(node.kw_defaults), kwarg=node_to_wast(node.kwarg), kwonlyargs=node_to_wast(node.kwonlyargs), posonlyargs=node_to_wast(node.posonlyargs), vararg=node_to_wast(node.vararg))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class arg(Node):
     arg: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     annotation: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
@@ -1150,19 +1144,19 @@ class arg(Node):
     def _from_builtin(cls, node):
         return cls(arg=node_to_wast(node.arg), annotation=node_to_wast(node.annotation), type_comment=node_to_wast(node.type_comment))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class keyword(Node):
-    arg: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
+    arg: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
 
     def _to_builtin(self):
-        return ast.keyword(arg=wast_to_node(self.arg), value=wast_to_node(self.value))
+        return ast.keyword(value=wast_to_node(self.value), arg=wast_to_node(self.arg))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(arg=node_to_wast(node.arg), value=node_to_wast(node.value))
+        return cls(value=node_to_wast(node.value), arg=node_to_wast(node.arg))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class alias(Node):
     name: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str), validate_identifier])
     asname: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
@@ -1174,7 +1168,7 @@ class alias(Node):
     def _from_builtin(cls, node):
         return cls(name=node_to_wast(node.name), asname=node_to_wast(node.asname))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class withitem(Node):
     context_expr: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
     optional_vars: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
@@ -1186,23 +1180,23 @@ class withitem(Node):
     def _from_builtin(cls, node):
         return cls(context_expr=node_to_wast(node.context_expr), optional_vars=node_to_wast(node.optional_vars))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class match_case(Node):
     pattern: pattern = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : pattern)])
-    guard: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
     body: Sequence[stmt] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : stmt)), default=list)
+    guard: Optional[expr] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : expr)]), default=None)
 
     def _to_builtin(self):
-        return ast.match_case(pattern=wast_to_node(self.pattern), guard=wast_to_node(self.guard), body=wast_to_node(self.body))
+        return ast.match_case(pattern=wast_to_node(self.pattern), body=wast_to_node(self.body), guard=wast_to_node(self.guard))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(pattern=node_to_wast(node.pattern), guard=node_to_wast(node.guard), body=node_to_wast(node.body))
+        return cls(pattern=node_to_wast(node.pattern), body=node_to_wast(node.body), guard=node_to_wast(node.guard))
 
 class pattern(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchValue(pattern):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
 
@@ -1213,7 +1207,7 @@ class MatchValue(pattern):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchSingleton(pattern):
     value: Any = attrs.ib(validator=[])
 
@@ -1224,7 +1218,7 @@ class MatchSingleton(pattern):
     def _from_builtin(cls, node):
         return cls(value=node_to_wast(node.value))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchSequence(pattern):
     patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
 
@@ -1235,7 +1229,7 @@ class MatchSequence(pattern):
     def _from_builtin(cls, node):
         return cls(patterns=node_to_wast(node.patterns))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchMapping(pattern):
     keys: Sequence[expr] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : expr)), default=list)
     patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
@@ -1248,21 +1242,21 @@ class MatchMapping(pattern):
     def _from_builtin(cls, node):
         return cls(keys=node_to_wast(node.keys), patterns=node_to_wast(node.patterns), rest=node_to_wast(node.rest))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchClass(pattern):
     cls: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : expr)])
-    patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
     kwd_attrs: Sequence[str] = attrs.ib(validator=attrs.validators.deep_iterable(attrs.validators.and_(ProxyInstanceOfValidator(lambda : str), validate_identifier)), default=list)
     kwd_patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
+    patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
 
     def _to_builtin(self):
-        return ast.MatchClass(cls=wast_to_node(self.cls), patterns=wast_to_node(self.patterns), kwd_attrs=wast_to_node(self.kwd_attrs), kwd_patterns=wast_to_node(self.kwd_patterns))
+        return ast.MatchClass(cls=wast_to_node(self.cls), kwd_attrs=wast_to_node(self.kwd_attrs), kwd_patterns=wast_to_node(self.kwd_patterns), patterns=wast_to_node(self.patterns))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(cls=node_to_wast(node.cls), patterns=node_to_wast(node.patterns), kwd_attrs=node_to_wast(node.kwd_attrs), kwd_patterns=node_to_wast(node.kwd_patterns))
+        return cls(cls=node_to_wast(node.cls), kwd_attrs=node_to_wast(node.kwd_attrs), kwd_patterns=node_to_wast(node.kwd_patterns), patterns=node_to_wast(node.patterns))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchStar(pattern):
     name: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
 
@@ -1273,19 +1267,19 @@ class MatchStar(pattern):
     def _from_builtin(cls, node):
         return cls(name=node_to_wast(node.name))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchAs(pattern):
-    pattern: Optional[pattern] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : pattern)]), default=None)
     name: Optional[str] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : str), validate_identifier]), default=None)
+    pattern: Optional[pattern] = attrs.ib(validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda : pattern)]), default=None)
 
     def _to_builtin(self):
-        return ast.MatchAs(pattern=wast_to_node(self.pattern), name=wast_to_node(self.name))
+        return ast.MatchAs(name=wast_to_node(self.name), pattern=wast_to_node(self.pattern))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(pattern=node_to_wast(node.pattern), name=node_to_wast(node.name))
+        return cls(name=node_to_wast(node.name), pattern=node_to_wast(node.pattern))
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class MatchOr(pattern):
     patterns: Sequence[pattern] = attrs.ib(validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda : pattern)), default=list)
 
@@ -1299,7 +1293,7 @@ class MatchOr(pattern):
 class type_ignore(Node):
     pass
 
-@attrs.s(kw_only=True)
+@attrs.s(hash=True, slots=True, eq=True)
 class TypeIgnore(type_ignore):
     lineno: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : int)])
     tag: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda : str)])

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import keyword
 from typing import Union, Callable, Any
-import wast_protected as wast
+import wast
 from attrs import define, field
 def validate_identifier(*args, **kwargs): pass
 @define(repr=False)

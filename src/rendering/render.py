@@ -5,7 +5,7 @@ import warnings
 import attrs
 import astor
 from itertools import chain
-
+import wast_protected as wast
 
 @attrs.define
 class Field:
@@ -27,55 +27,59 @@ class Field:
     def rendered(self):
         spec = self.spec
 
+        validators = []
         match self.type:
             case "identifier":
                 raw = ast.Name("str")
-                validators = [
-                    au.mk_io_validator(ast.Name("str")),
-                    ast.Name("validate_identifier"),
-                ]
             case "string":
                 raw = ast.Name("str")
-                validators = [au.mk_io_validator(ast.Name("str"))]
+                validators += [au.mk_io_validator(ast.Name("str"))]
             case "int":
                 raw = ast.Name("int")
-                validators = [au.mk_io_validator(ast.Name("int"))]
+                validators += [au.mk_io_validator(ast.Name("int"))]
             case "constant":
                 raw = ast.Name("Any")
-                validators = []
             case _:
                 raw = ast.Name(self.type)
-                validators = [au.mk_io_validator(raw)]
+                validators += [au.mk_io_validator(raw)]
 
-        if spec.opt or self.type == "expr_context":
+        field_args = {}
+        if spec.opt:
             annotation = au.mk_optional_type(raw)
-            validator = au.mk_opt_validator(ast.List(validators))
-            ib_args = dict(default=ast.Constant(None))
+
+            if validators:
+                field_args |= dict(validator=au.mk_opt_validator(ast.List(validators)))
+
+            field_args |= dict(default=ast.Constant(None))
         elif spec.seq:
             annotation = au.mk_seq_type(raw)
-            validator = au.mk_seq_validator(*validators)
-            ib_args = dict(default=ast.Name("list"))
+
+            if validators:
+                field_args |= dict(validator=au.mk_seq_validator(*validators))
+
+            field_args |= dict(factory=ast.Name("list"))
         else:
             annotation = raw
-            validator = ast.List(validators)
-            ib_args = dict()
 
-        if self.type == "expr_context" or self.name in ("type_comment", "type_ignores"):
-            ib_args["repr"] = ast.Constant(False)
+            if validators:
+                field_args |= dict(validator=ast.List(validators))
+
+        if self.name in ("type_comment", "type_ignores"):
+            field_args |= dict(repr=ast.Constant(False))
 
         node = ast.AnnAssign(
             target=ast.Name(self.name),
             annotation=annotation,
-            value=au.mk_attr_ib(validator=validator, **ib_args),
+            value=au.mk_attr_ib(**field_args),
             simple=True,
         )
-        return node
+        return [node]
 
 
 class FieldsMixin:
     @property
     def parsed_fields(self):
-        return sorted((Field(x) for x in self.spec.fields), key=lambda x: (x.has_default, x.name))
+        return sorted((Field(x) for x in self.spec.fields if x.type != "expr_context"), key=lambda x: (x.has_default, x.name))
 
     def builtin_call(self, source_name, target_expr, fn):
         return ast.Call(
@@ -128,11 +132,11 @@ class FieldsMixin:
             body=[ast.Return(self.builtin_call("node", ast.Name("cls"), "node_to_wast"))],
         )
         node = ast.ClassDef(
-            decorator_list=[au.mk_attr_s(hash=ast.Constant(True))],
+            decorator_list=[au.mk_attr_s(hash=ast.Constant(True), slots=ast.Constant(True), eq=ast.Constant(True))],
             bases=[ast.Name(self.base_name)],
             keywords=[],
             name=self.name,
-            body=[*(x.rendered for x in self.parsed_fields), to_builtin, from_builtin],
+            body=[*chain.from_iterable(x.rendered for x in self.parsed_fields), to_builtin, from_builtin],
         )
         return [node]
 
@@ -177,10 +181,6 @@ class Product(FieldsMixin):
     spec: asdl.Product
 
     @property
-    def parsed_fields(self):
-        return [Field(x) for x in self.spec.fields]
-
-    @property
     def base_name(self):
         return "Node"
 
@@ -205,11 +205,14 @@ class TopLevel:
 
     @property
     def rendered(self):
-        nodes = chain.from_iterable(x.rendered for x in self.dfns_parsed)
+        nodes = list(chain.from_iterable(x.rendered for x in self.dfns_parsed))
         return ast.Module(nodes)
 
 
 dfns = asdl.parse("Python.asdl").dfns
 top_level = TopLevel(dfns=dfns)
 header = "".join(open("header.py", "r"))
-print(header + astor.to_source(top_level.rendered))
+rendered = top_level.rendered
+#wast.node_to_wast(rendered)
+
+print(header + astor.to_source(rendered))
