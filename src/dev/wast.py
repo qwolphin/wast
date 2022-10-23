@@ -2,12 +2,21 @@ from __future__ import annotations
 import ast
 import attr as attrs
 from typing import Optional, Sequence, Callable
-from .validators import *
+from .validators import (
+    convert_identifier,
+    DeepIterableConverter,
+    ProxyInstanceOfValidator,
+)
 
 
 def unparse(node):
     n = ast.fix_missing_locations(node._to_builtin())
     return ast.unparse(n)
+
+
+def parse(text):
+    node = ast.parse(text)
+    return node_to_wast(node)
 
 
 class Node:
@@ -34,33 +43,38 @@ def wast_to_node(node):
             return node._to_builtin()
 
 
-@attrs.attrs(repr=False, slots=True, hash=True)
-class ProxyInstanceOfValidator(object):
-    type: Callable[[], Any] = attrs.ib()
+class FreeUnderscore:
+    def __getattribute__(self, name):
+        return w.Name(id=name)
 
-    def __call__(self, inst, attr, value):
-        """
-        We use a callable class to be able to change the ``__repr__``.
-        """
-        type = self.type()
-        if not isinstance(value, type):
-            raise TypeError(
-                "'{name}' must be {type!r} (got {value!r} that is a "
-                "{actual!r}).".format(
-                    name=attr.name,
-                    type=type,
-                    actual=value.__class__,
-                    value=value,
-                ),
-                attr,
-                type,
-                value,
-            )
 
-    def __repr__(self):
-        return "<proxy_instance_of validator for type {type!r}>".format(
-            type=self.type()
+_ = FreeUnderscore()
+
+
+class BoundUnderscore(object):
+    F89tRaS7LrnWJyur8gPTI7: list  # inner FIXME
+
+    def __init__(self, inner_node):
+        self.F89tRaS7LrnWJyur8gPTI7 = inner_node
+
+    def __getattr__(self, name):
+        n = self.F89tRaS7LrnWJyur8gPTI7
+        return Attribute(value=self.F89tRaS7LrnWJyur8gPTI7, attr=name)
+
+    def __call__(self, *args, **kwargs):
+        n = self.F89tRaS7LrnWJyur8gPTI7
+        return Call(
+            func=n,
+            args=args,
+            keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()],
         )
+
+    def __getitem__(self, key):
+        n = self.F89tRaS7LrnWJyur8gPTI7
+        if isinstance(key, slice):
+            key = w.slice(lower=key.start, upper=key.stop, step=key.step)
+
+        return w.Subscript(slice=key, value=n)
 
 
 class mod(Node):
@@ -153,7 +167,7 @@ class stmt(Node):
 @attrs.s(hash=True, slots=True, eq=True)
 class FunctionDef(stmt):
     args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: arguments)])
-    name: str = attrs.ib()
+    name: str = attrs.ib(converter=convert_identifier)
     body: Sequence[stmt] = attrs.ib(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
@@ -201,7 +215,7 @@ class FunctionDef(stmt):
 @attrs.s(hash=True, slots=True, eq=True)
 class AsyncFunctionDef(stmt):
     args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: arguments)])
-    name: str = attrs.ib()
+    name: str = attrs.ib(converter=convert_identifier)
     body: Sequence[stmt] = attrs.ib(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
@@ -248,7 +262,7 @@ class AsyncFunctionDef(stmt):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class ClassDef(stmt):
-    name: str = attrs.ib()
+    name: str = attrs.ib(converter=convert_identifier)
     bases: Sequence[expr] = attrs.ib(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
@@ -750,7 +764,7 @@ class ImportFrom(stmt):
         validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: int)]),
         default=None,
     )
-    module: Optional[str] = attrs.ib(default=None)
+    module: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
     names: Sequence[alias] = attrs.ib(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
@@ -776,7 +790,9 @@ class ImportFrom(stmt):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class Global(stmt):
-    names: Sequence[str] = attrs.ib(factory=list)
+    names: Sequence[str] = attrs.ib(
+        factory=list, converter=DeepIterableConverter(convert_identifier)
+    )
 
     def _to_builtin(self):
         return ast.Global(names=wast_to_node(self.names))
@@ -788,7 +804,9 @@ class Global(stmt):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class Nonlocal(stmt):
-    names: Sequence[str] = attrs.ib(factory=list)
+    names: Sequence[str] = attrs.ib(
+        factory=list, converter=DeepIterableConverter(convert_identifier)
+    )
 
     def _to_builtin(self):
         return ast.Nonlocal(names=wast_to_node(self.names))
@@ -841,7 +859,9 @@ class Continue(stmt):
 
 
 class expr(Node):
-    pass
+    @property
+    def _(self):
+        return BoundUnderscore(inner=self)
 
 
 @attrs.s(hash=True, slots=True, eq=True)
@@ -1242,7 +1262,7 @@ class Constant(expr):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class Attribute(expr):
-    attr: str = attrs.ib()
+    attr: str = attrs.ib(converter=convert_identifier)
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
 
     def _to_builtin(self):
@@ -1284,7 +1304,7 @@ class Starred(expr):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class Name(expr):
-    id: str = attrs.ib()
+    id: str = attrs.ib(converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.Name(id=wast_to_node(self.id))
@@ -1741,7 +1761,7 @@ class ExceptHandler(excepthandler):
         ),
         factory=list,
     )
-    name: Optional[str] = attrs.ib(default=None)
+    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
     type: Optional[expr] = attrs.ib(
         validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
         default=None,
@@ -1824,7 +1844,7 @@ class arguments(Node):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class arg(Node):
-    arg: str = attrs.ib()
+    arg: str = attrs.ib(converter=convert_identifier)
     annotation: Optional[expr] = attrs.ib(
         validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
         default=None,
@@ -1854,7 +1874,7 @@ class arg(Node):
 @attrs.s(hash=True, slots=True, eq=True)
 class keyword(Node):
     value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    arg: Optional[str] = attrs.ib(default=None)
+    arg: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.keyword(value=wast_to_node(self.value), arg=wast_to_node(self.arg))
@@ -1866,8 +1886,8 @@ class keyword(Node):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class alias(Node):
-    name: str = attrs.ib()
-    asname: Optional[str] = attrs.ib(default=None)
+    name: str = attrs.ib(converter=convert_identifier)
+    asname: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.alias(name=wast_to_node(self.name), asname=wast_to_node(self.asname))
@@ -1988,7 +2008,7 @@ class MatchMapping(pattern):
         ),
         factory=list,
     )
-    rest: Optional[str] = attrs.ib(default=None)
+    rest: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.MatchMapping(
@@ -2009,7 +2029,9 @@ class MatchMapping(pattern):
 @attrs.s(hash=True, slots=True, eq=True)
 class MatchClass(pattern):
     cls: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    kwd_attrs: Sequence[str] = attrs.ib(factory=list)
+    kwd_attrs: Sequence[str] = attrs.ib(
+        factory=list, converter=DeepIterableConverter(convert_identifier)
+    )
     kwd_patterns: Sequence[pattern] = attrs.ib(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
@@ -2043,7 +2065,7 @@ class MatchClass(pattern):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class MatchStar(pattern):
-    name: Optional[str] = attrs.ib(default=None)
+    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.MatchStar(name=wast_to_node(self.name))
@@ -2055,7 +2077,7 @@ class MatchStar(pattern):
 
 @attrs.s(hash=True, slots=True, eq=True)
 class MatchAs(pattern):
-    name: Optional[str] = attrs.ib(default=None)
+    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
     pattern: Optional[pattern] = attrs.ib(
         validator=attrs.validators.optional(
             [ProxyInstanceOfValidator(lambda: pattern)]

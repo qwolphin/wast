@@ -5,7 +5,9 @@ import warnings
 import attrs
 import astor
 from itertools import chain
-import stable.wast as wast
+import dev.wast as wast
+from fragments import FRAGMENTS
+
 
 @attrs.define
 class Field:
@@ -28,9 +30,11 @@ class Field:
         spec = self.spec
 
         validators = []
+        converter = None
         match self.type:
             case "identifier":
                 raw = ast.Name("str")
+                converter = ast.Name("convert_identifier")
             case "string":
                 raw = ast.Name("str")
                 validators += [au.mk_io_validator(ast.Name("str"))]
@@ -57,6 +61,9 @@ class Field:
             if validators:
                 field_args |= dict(validator=au.mk_seq_validator(*validators))
 
+            if converter:
+                converter = au.mk_di_converter(converter)
+
             field_args |= dict(factory=ast.Name("list"))
         else:
             annotation = raw
@@ -66,6 +73,9 @@ class Field:
 
         if self.name in ("type_comment", "type_ignores"):
             field_args |= dict(repr=ast.Constant(False))
+
+        if converter:
+            field_args |= dict(converter=converter)
 
         node = ast.AnnAssign(
             target=ast.Name(self.name),
@@ -106,7 +116,10 @@ class FieldsMixin:
                     )
                 ],
                 defaults=[],
+                kw_defaults=[],
+                kwonlyargs=[],
                 vararg=None,
+                posonlyargs=[],
                 kwarg=None,
             ),
             keywords=[],
@@ -125,7 +138,10 @@ class FieldsMixin:
                     ),
                 ],
                 defaults=[],
+                kw_defaults=[],
+                kwonlyargs=[],
                 vararg=None,
+                posonlyargs=[],
                 kwarg=None,
             ),
             keywords=[],
@@ -170,7 +186,7 @@ class Sum:
             bases=[ast.Name("Node")],
             keywords=[],
             name=self.name,
-            body=[ast.Pass()],
+            body=[FRAGMENTS["meow"] if self.name == 'expr' else ast.Pass()],
         )
         return [base, *chain.from_iterable(x.rendered for x in self.parsed_constructors)]
 
@@ -206,13 +222,12 @@ class TopLevel:
     @property
     def rendered(self):
         nodes = list(chain.from_iterable(x.rendered for x in self.dfns_parsed))
-        return ast.Module(nodes)
-
+        return ast.Module(nodes, type_ignores=[])
 
 dfns = asdl.parse("Python.asdl").dfns
 top_level = TopLevel(dfns=dfns)
 header = "".join(open("header.py", "r"))
 rendered = top_level.rendered
-#wast.node_to_wast(rendered)
+wast.node_to_wast(rendered)
 
 print(header + astor.to_source(rendered))

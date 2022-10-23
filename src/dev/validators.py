@@ -1,9 +1,39 @@
 from __future__ import annotations
 import keyword
 from typing import Union, Callable, Any
-from . import wast
+#from . import wast
 from attrs import define, field
-def validate_identifier(*args, **kwargs): pass
+
+
+@define(repr=False)
+class ProxyInstanceOfValidator(object):
+    type: Callable[[], Any] = field()
+
+    def __call__(self, inst, attr, value):
+        """
+        We use a callable class to be able to change the ``__repr__``.
+        """
+        type = self.type()
+        if not isinstance(value, type):
+            raise TypeError(
+                "'{name}' must be {type!r} (got {value!r} that is a "
+                "{actual!r}).".format(
+                    name=attr.name,
+                    type=type,
+                    actual=value.__class__,
+                    value=value,
+                ),
+                attr,
+                type,
+                value,
+            )
+
+    def __repr__(self):
+        return "<proxy_instance_of validator for type {type!r}>".format(
+            type=self.type()
+        )
+
+
 @define(repr=False)
 class DeepIterableConverter(object):
     member_converter: Callable[[Any], Any] # FIXME
@@ -32,9 +62,7 @@ def convert_identifier(value: Union[str | wast.Name]) -> str:
     if keyword.iskeyword(val):
         raise ValueError(f"{val} is a Python keyword")
 
-    if val == "*":
-        #import alias special case
-        return
-
-    if not val.isidentifier():
+    if val == "*" and not val.isidentifier():
         raise ValueError(f"{val} is not a valid Python identifier")
+
+    return val
