@@ -45,7 +45,7 @@ def wast_to_node(node):
 
 class FreeUnderscore:
     def __getattribute__(self, name):
-        return w.Name(id=name)
+        return Name(id=name)
 
 
 _ = FreeUnderscore()
@@ -72,9 +72,9 @@ class BoundUnderscore(object):
     def __getitem__(self, key):
         n = self.F89tRaS7LrnWJyur8gPTI7
         if isinstance(key, slice):
-            key = w.slice(lower=key.start, upper=key.stop, step=key.step)
+            key = slice(lower=key.start, upper=key.stop, step=key.step)
 
-        return w.Subscript(slice=key, value=n)
+        return Subscript(slice=key, value=n)
 
 
 class mod(Node):
