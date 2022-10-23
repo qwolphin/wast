@@ -5,7 +5,7 @@ import warnings
 import attrs
 import astor
 from itertools import chain
-import wast_protected as wast
+import stable.wast as wast
 
 @attrs.define
 class Field:
