@@ -52,16 +52,14 @@ class DeepIterableConverter(object):
 
 
 def convert_identifier(value: Union[str | wast.Name]) -> str:
-    from .wast import Name
-
     match value:
         case str():
             val = value
-        case Name():
+        case wast.Name():
             val = value.id
         case _:
             raise TypeError(
-                f"{value} has type {value.__class__}. Must be {str} or {Name}"
+                f"{val} has type {val.__class__}. Must be {str} or wast.Name"
             )
 
     if keyword.iskeyword(val):

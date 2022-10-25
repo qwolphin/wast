@@ -101,7 +101,7 @@ class ClassSuffixMixin:
     def class_suffix(self):
         key = f"class_suffix_{self.name}"
         try:
-            return [FRAGMENTS[key]]
+            return FRAGMENTS[key]
         except KeyError:
             return []
 

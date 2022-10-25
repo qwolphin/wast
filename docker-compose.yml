@@ -4,7 +4,11 @@ services:
   main:
     build:
       context: ./src
+      args:
+        HOST_USER: ${USER?}
+        HOST_UID: ${HOST_UID:-1000}
       #target: requirements
     command: 'sleep infinity'
+    working_dir: /app
     volumes:
       - "./src:/app"
