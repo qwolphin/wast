@@ -1,7 +1,8 @@
 from __future__ import annotations
 import keyword
 from typing import Union, Callable, Any
-#from . import wast
+
+# from . import wast
 from attrs import define, field
 
 
@@ -36,7 +37,7 @@ class ProxyInstanceOfValidator(object):
 
 @define(repr=False)
 class DeepIterableConverter(object):
-    member_converter: Callable[[Any], Any] # FIXME
+    member_converter: Callable[[Any], Any]  # FIXME
 
     def __call__(self, value):
         """
@@ -51,13 +52,17 @@ class DeepIterableConverter(object):
 
 
 def convert_identifier(value: Union[str | wast.Name]) -> str:
+    from .wast import Name
+
     match value:
         case str():
             val = value
-        case wast.Name():
+        case Name():
             val = value.id
         case _:
-            raise TypeError(f'{val} has type {val.__class__}. Must be {str} or {wast.Name}')
+            raise TypeError(
+                f"{value} has type {value.__class__}. Must be {str} or {Name}"
+            )
 
     if keyword.iskeyword(val):
         raise ValueError(f"{val} is a Python keyword")

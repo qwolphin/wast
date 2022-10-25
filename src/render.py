@@ -1,12 +1,16 @@
 import asdl
-import ast
-import ast_utils as au
-import warnings
 import attrs
-import astor
+from activated_wast import w, _
 from itertools import chain
-import dev.wast as wast
 from fragments import FRAGMENTS
+
+
+def mk_io_validator(val):
+    return _.ProxyInstanceOfValidator(w.Lambda(w.arguments(), val))._
+
+
+def const(val):
+    return w.Constant(val)
 
 
 @attrs.define
@@ -23,7 +27,7 @@ class Field:
 
     @property
     def has_default(self):
-        return self.spec.opt or self.spec.seq or self.type == "expr_context"
+        return self.spec.opt or self.spec.seq
 
     @property
     def rendered(self):
@@ -33,128 +37,131 @@ class Field:
         converter = None
         match self.type:
             case "identifier":
-                raw = ast.Name("str")
-                converter = ast.Name("convert_identifier")
+                annotation = _.str._
+                converter = _.convert_identifier._
             case "string":
-                raw = ast.Name("str")
-                validators += [au.mk_io_validator(ast.Name("str"))]
+                annotation = _.str._
+                validators += [mk_io_validator(annotation)]
             case "int":
-                raw = ast.Name("int")
-                validators += [au.mk_io_validator(ast.Name("int"))]
+                annotation = _.int._
+                validators += [mk_io_validator(annotation)]
             case "constant":
-                raw = ast.Name("Any")
+                annotation = _.Any._
             case _:
-                raw = ast.Name(self.type)
-                validators += [au.mk_io_validator(raw)]
+                annotation = _(self.type)._
+                validators += [mk_io_validator(annotation)]
+
+        assert len(validators) < 2  # FIXME
 
         field_args = {}
         if spec.opt:
-            annotation = au.mk_optional_type(raw)
+            annotation = _.Optional[annotation]._
 
             if validators:
-                field_args |= dict(validator=au.mk_opt_validator(ast.List(validators)))
+                field_args |= dict(
+                    validator=_.attrs.validators.optional(validators[0])._
+                )
 
-            field_args |= dict(default=ast.Constant(None))
+            # FIXME handle converter
+
+            field_args |= dict(default=w.Constant(None))
         elif spec.seq:
-            annotation = au.mk_seq_type(raw)
+            annotation = _.Sequence[annotation]._
 
             if validators:
-                field_args |= dict(validator=au.mk_seq_validator(*validators))
+                field_args |= dict(
+                    validator=_.attrs.validators.deep_iterable(validators[0])._
+                )
 
             if converter:
-                converter = au.mk_di_converter(converter)
+                converter = _.DeepIterableConverter(converter)._
 
-            field_args |= dict(factory=ast.Name("list"))
+            field_args |= dict(factory=_.list._)
         else:
-            annotation = raw
-
             if validators:
-                field_args |= dict(validator=ast.List(validators))
+                field_args |= dict(validator=validators[0])
 
         if self.name in ("type_comment", "type_ignores"):
-            field_args |= dict(repr=ast.Constant(False))
+            field_args |= dict(repr=w.Constant(False))
 
         if converter:
             field_args |= dict(converter=converter)
 
-        node = ast.AnnAssign(
-            target=ast.Name(self.name),
+        node = w.AnnAssign(
+            target=_(self.name)._,
             annotation=annotation,
-            value=au.mk_attr_ib(**field_args),
-            simple=True,
+            value=_.attrs.field(**field_args)._,
+            simple=1,
         )
         return [node]
 
 
-class FieldsMixin:
+class ClassSuffixMixin:
+    @property
+    def class_suffix(self):
+        key = f"class_suffix_{self.name}"
+        try:
+            return [FRAGMENTS[key]]
+        except KeyError:
+            return []
+
+
+class FieldsMixin(ClassSuffixMixin):
     @property
     def parsed_fields(self):
-        return sorted((Field(x) for x in self.spec.fields if x.type != "expr_context"), key=lambda x: (x.has_default, x.name))
+        return sorted(
+            (Field(x) for x in self.spec.fields if x.type != "expr_context"),
+            key=lambda x: (x.has_default, x.name),
+        )
 
-    def builtin_call(self, source_name, target_expr, fn):
-        return ast.Call(
-            func=target_expr,
-            args=[],
-            keywords=[
-                ast.keyword(
-                    arg=f.name,
-                    value=ast.Call(func=ast.Name(fn), args=[au.mk_aa(source_name, f.name)], keywords=[]),
-                )
-                for f in self.parsed_fields
-            ],
+    @property
+    def to_builtin(self):
+        kwargs = {
+            x.name: _.wast_to_node(_.self._(x.name)._)._ for x in self.parsed_fields
+        }
+        ret = _.ast._(self.name)(**kwargs)._
+
+        return w.FunctionDef(
+            name="_to_builtin",
+            args=w.arguments(
+                args=[w.arg(arg="self")],
+            ),
+            body=[w.Return(ret)],
+        )
+
+    @property
+    def from_builtin(self):
+        kwargs = {
+            x.name: _.node_to_wast(_.node._(x.name)._)._ for x in self.parsed_fields
+        }
+        ret = _.cls(**kwargs)._
+
+        return w.FunctionDef(
+            name="_from_builtin",
+            decorator_list=[_("classmethod")._],
+            args=w.arguments(
+                args=[w.arg(arg="cls"), w.arg(arg="node")],
+            ),
+            body=[w.Return(ret)],
         )
 
     @property
     def rendered(self):
-        to_builtin = ast.FunctionDef(
-            name="_to_builtin",
-            decorator_list=[],
-            args=ast.arguments(
-                args=[
-                    ast.arg(
-                        arg="self",
-                    )
-                ],
-                defaults=[],
-                kw_defaults=[],
-                kwonlyargs=[],
-                vararg=None,
-                posonlyargs=[],
-                kwarg=None,
-            ),
-            keywords=[],
-            body=[ast.Return(self.builtin_call("self", au.mk_aa("ast", self.name), "wast_to_node"))],
-        )
-        from_builtin = ast.FunctionDef(
-            name="_from_builtin",
-            decorator_list=[ast.Name("classmethod")],
-            args=ast.arguments(
-                args=[
-                    ast.arg(
-                        arg="cls",
-                    ),
-                    ast.arg(
-                        arg="node",
-                    ),
-                ],
-                defaults=[],
-                kw_defaults=[],
-                kwonlyargs=[],
-                vararg=None,
-                posonlyargs=[],
-                kwarg=None,
-            ),
-            keywords=[],
-            body=[ast.Return(self.builtin_call("node", ast.Name("cls"), "node_to_wast"))],
-        )
-        node = ast.ClassDef(
-            decorator_list=[au.mk_attr_s(hash=ast.Constant(True), slots=ast.Constant(True), eq=ast.Constant(True))],
-            bases=[ast.Name(self.base_name)],
-            keywords=[],
+        node = w.ClassDef(
+            decorator_list=[
+                _.attrs.define(hash=const(True), slots=const(True), eq=const(True))._
+            ],
+            bases=[_(self.base_name)._],
             name=self.name,
-            body=[*chain.from_iterable(x.rendered for x in self.parsed_fields), to_builtin, from_builtin],
+            body=[
+                *chain.from_iterable(x.rendered for x in self.parsed_fields),
+                self.to_builtin,
+                self.from_builtin,
+                *self.class_suffix,
+            ],
         )
         return [node]
+
 
 @attrs.define
 class Constructor(FieldsMixin):
@@ -171,7 +178,7 @@ class Constructor(FieldsMixin):
 
 
 @attrs.define
-class Sum:
+class Sum(ClassSuffixMixin):
     name: str
     spec: asdl.Sum
 
@@ -181,14 +188,15 @@ class Sum:
 
     @property
     def rendered(self):
-        base = ast.ClassDef(
-            decorator_list=[],
-            bases=[ast.Name("Node")],
-            keywords=[],
+        base = w.ClassDef(
+            bases=[_.Node._],
             name=self.name,
-            body=[FRAGMENTS["meow"] if self.name == 'expr' else ast.Pass()],
+            body=self.class_suffix or [w.Pass()],
         )
-        return [base, *chain.from_iterable(x.rendered for x in self.parsed_constructors)]
+        return [
+            base,
+            *chain.from_iterable(x.rendered for x in self.parsed_constructors),
+        ]
 
 
 @attrs.define
@@ -222,12 +230,12 @@ class TopLevel:
     @property
     def rendered(self):
         nodes = list(chain.from_iterable(x.rendered for x in self.dfns_parsed))
-        return ast.Module(nodes, type_ignores=[])
+        return w.Module(nodes)
+
 
 dfns = asdl.parse("Python.asdl").dfns
 top_level = TopLevel(dfns=dfns)
 header = "".join(open("header.py", "r"))
 rendered = top_level.rendered
-wast.node_to_wast(rendered)
 
-print(header + astor.to_source(rendered))
+print(header + w.unparse(rendered))

@@ -1,19 +1,27 @@
 from __future__ import annotations
 import ast
-import attr as attrs
+import attrs
 from typing import Optional, Sequence, Callable
-from .validators import convert_identifier, DeepIterableConverter, ProxyInstanceOfValidator
+from .validators import (
+    convert_identifier,
+    DeepIterableConverter,
+    ProxyInstanceOfValidator,
+)
+
 
 def unparse(node):
     n = ast.fix_missing_locations(node._to_builtin())
     return ast.unparse(n)
 
+
 def parse(text):
     node = ast.parse(text)
     return node_to_wast(node)
 
+
 class Node:
     pass
+
 
 def node_to_wast(node):
     match node:
@@ -34,29 +42,53 @@ def wast_to_node(node):
         case _:
             return node._to_builtin()
 
+
 class FreeUnderscore:
-    def __getattribute__(self, name):
-        return Name(id=name)
+    def __getattr__(self, name):
+        return BoundUnderscore(Name(id=name))
+
+    def __call__(self, name, *attrs):
+        ret = Name(id=name)
+        for name in reversed(attrs):
+            ret = Attribute(value=ret, attr=name)
+
+        return BoundUnderscore(ret)
+
 
 _ = FreeUnderscore()
 
-class BoundUnderscore(object):
-    F89tRaS7LrnWJyur8gPTI7: list # inner FIXME
 
-    def __init__(self, inner_node):
-        self.F89tRaS7LrnWJyur8gPTI7 = inner_node
+class BoundUnderscore(object):
+    def __repr__(self):
+        return f"BoundUnderscore({self.__inner__})"
+
+    def __init__(self, inner):
+        assert isinstance(inner, expr)
+        self.__inner__ = inner
 
     def __getattr__(self, name):
-        n = self.F89tRaS7LrnWJyur8gPTI7
-        return Attribute(value=self.F89tRaS7LrnWJyur8gPTI7, attr=name)
+        return BoundUnderscore(Attribute(value=self.__inner__, attr=name))
 
     def __call__(self, *args, **kwargs):
-        n = self.F89tRaS7LrnWJyur8gPTI7
-        return Call(func=n, args=args, keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()])
+        return BoundUnderscore(
+            Call(
+                func=self.__inner__,
+                args=args,
+                keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()],
+            )
+        )
+
+    def __add__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Add(), right=other.__inner__)
+        )
 
     def __getitem__(self, key):
-        n = self.F89tRaS7LrnWJyur8gPTI7
         if isinstance(key, slice):
             key = slice(lower=key.start, upper=key.stop, step=key.step)
 
-        return Subscript(slice=key, value=n)
+        return BoundUnderscore(Subscript(slice=key, value=self.__inner__))
+
+    @property
+    def _(self):
+        return self.__inner__

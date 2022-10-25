@@ -1,6 +1,6 @@
 from __future__ import annotations
 import ast
-import attr as attrs
+import attrs
 from typing import Optional, Sequence, Callable
 from .validators import (
     convert_identifier,
@@ -44,52 +44,69 @@ def wast_to_node(node):
 
 
 class FreeUnderscore:
-    def __getattribute__(self, name):
-        return Name(id=name)
+    def __getattr__(self, name):
+        return BoundUnderscore(Name(id=name))
+
+    def __call__(self, name, *attrs):
+        ret = Name(id=name)
+        for name in reversed(attrs):
+            ret = Attribute(value=ret, attr=name)
+
+        return BoundUnderscore(ret)
 
 
 _ = FreeUnderscore()
 
 
 class BoundUnderscore(object):
-    F89tRaS7LrnWJyur8gPTI7: list  # inner FIXME
+    def __repr__(self):
+        return f"BoundUnderscore({self.__inner__})"
 
-    def __init__(self, inner_node):
-        self.F89tRaS7LrnWJyur8gPTI7 = inner_node
+    def __init__(self, inner):
+        assert isinstance(inner, expr)
+        self.__inner__ = inner
 
     def __getattr__(self, name):
-        n = self.F89tRaS7LrnWJyur8gPTI7
-        return Attribute(value=self.F89tRaS7LrnWJyur8gPTI7, attr=name)
+        return BoundUnderscore(Attribute(value=self.__inner__, attr=name))
 
     def __call__(self, *args, **kwargs):
-        n = self.F89tRaS7LrnWJyur8gPTI7
-        return Call(
-            func=n,
-            args=args,
-            keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()],
+        return BoundUnderscore(
+            Call(
+                func=self.__inner__,
+                args=args,
+                keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()],
+            )
+        )
+
+    def __add__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Add(), right=other.__inner__)
         )
 
     def __getitem__(self, key):
-        n = self.F89tRaS7LrnWJyur8gPTI7
         if isinstance(key, slice):
             key = slice(lower=key.start, upper=key.stop, step=key.step)
 
-        return Subscript(slice=key, value=n)
+        return BoundUnderscore(Subscript(slice=key, value=self.__inner__))
+
+    @property
+    def _(self):
+        return self.__inner__
 
 
 class mod(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Module(mod):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    type_ignores: Sequence[type_ignore] = attrs.ib(
+    type_ignores: Sequence[type_ignore] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: type_ignore)
         ),
@@ -109,9 +126,9 @@ class Module(mod):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Interactive(mod):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
@@ -126,9 +143,9 @@ class Interactive(mod):
         return cls(body=node_to_wast(node.body))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Expression(mod):
-    body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    body: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Expression(body=wast_to_node(self.body))
@@ -138,10 +155,10 @@ class Expression(mod):
         return cls(body=node_to_wast(node.body))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class FunctionType(mod):
-    returns: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    argtypes: Sequence[expr] = attrs.ib(
+    returns: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    argtypes: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -164,28 +181,28 @@ class stmt(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class FunctionDef(stmt):
-    args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: arguments)])
-    name: str = attrs.ib(converter=convert_identifier)
-    body: Sequence[stmt] = attrs.ib(
+    args: arguments = attrs.field(validator=ProxyInstanceOfValidator(lambda: arguments))
+    name: str = attrs.field(converter=convert_identifier)
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    decorator_list: Sequence[expr] = attrs.ib(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    returns: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    returns: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -212,28 +229,28 @@ class FunctionDef(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class AsyncFunctionDef(stmt):
-    args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: arguments)])
-    name: str = attrs.ib(converter=convert_identifier)
-    body: Sequence[stmt] = attrs.ib(
+    args: arguments = attrs.field(validator=ProxyInstanceOfValidator(lambda: arguments))
+    name: str = attrs.field(converter=convert_identifier)
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    decorator_list: Sequence[expr] = attrs.ib(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    returns: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    returns: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -260,28 +277,28 @@ class AsyncFunctionDef(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class ClassDef(stmt):
-    name: str = attrs.ib(converter=convert_identifier)
-    bases: Sequence[expr] = attrs.ib(
+    name: str = attrs.field(converter=convert_identifier)
+    bases: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    decorator_list: Sequence[expr] = attrs.ib(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    keywords: Sequence[keyword] = attrs.ib(
+    keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
@@ -308,10 +325,10 @@ class ClassDef(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Return(stmt):
-    value: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -323,9 +340,9 @@ class Return(stmt):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Delete(stmt):
-    targets: Sequence[expr] = attrs.ib(
+    targets: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -340,17 +357,17 @@ class Delete(stmt):
         return cls(targets=node_to_wast(node.targets))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Assign(stmt):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    targets: Sequence[expr] = attrs.ib(
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    targets: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -371,11 +388,11 @@ class Assign(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class AugAssign(stmt):
-    op: operator = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: operator)])
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    op: operator = attrs.field(validator=ProxyInstanceOfValidator(lambda: operator))
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.AugAssign(
@@ -393,13 +410,13 @@ class AugAssign(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class AnnAssign(stmt):
-    annotation: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    simple: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: int)])
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    value: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    annotation: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    simple: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -421,24 +438,24 @@ class AnnAssign(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class For(stmt):
-    iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    body: Sequence[stmt] = attrs.ib(
+    iter: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    orelse: Sequence[stmt] = attrs.ib(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -463,24 +480,24 @@ class For(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class AsyncFor(stmt):
-    iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    body: Sequence[stmt] = attrs.ib(
+    iter: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    orelse: Sequence[stmt] = attrs.ib(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -505,16 +522,16 @@ class AsyncFor(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class While(stmt):
-    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    body: Sequence[stmt] = attrs.ib(
+    test: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    orelse: Sequence[stmt] = attrs.ib(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
@@ -537,16 +554,16 @@ class While(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class If(stmt):
-    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    body: Sequence[stmt] = attrs.ib(
+    test: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    orelse: Sequence[stmt] = attrs.ib(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
@@ -569,22 +586,22 @@ class If(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class With(stmt):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    items: Sequence[withitem] = attrs.ib(
+    items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
         factory=list,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -605,22 +622,22 @@ class With(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class AsyncWith(stmt):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    items: Sequence[withitem] = attrs.ib(
+    items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
         factory=list,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -641,10 +658,10 @@ class AsyncWith(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Match(stmt):
-    subject: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    cases: Sequence[match_case] = attrs.ib(
+    subject: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    cases: Sequence[match_case] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: match_case)
         ),
@@ -661,14 +678,14 @@ class Match(stmt):
         return cls(subject=node_to_wast(node.subject), cases=node_to_wast(node.cases))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Raise(stmt):
-    cause: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    cause: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    exc: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    exc: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -680,27 +697,27 @@ class Raise(stmt):
         return cls(cause=node_to_wast(node.cause), exc=node_to_wast(node.exc))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Try(stmt):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    finalbody: Sequence[stmt] = attrs.ib(
+    finalbody: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    handlers: Sequence[excepthandler] = attrs.ib(
+    handlers: Sequence[excepthandler] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: excepthandler)
         ),
         factory=list,
     )
-    orelse: Sequence[stmt] = attrs.ib(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
@@ -725,11 +742,11 @@ class Try(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Assert(stmt):
-    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    msg: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    test: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    msg: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -741,9 +758,9 @@ class Assert(stmt):
         return cls(test=node_to_wast(node.test), msg=node_to_wast(node.msg))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Import(stmt):
-    names: Sequence[alias] = attrs.ib(
+    names: Sequence[alias] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
@@ -758,14 +775,14 @@ class Import(stmt):
         return cls(names=node_to_wast(node.names))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class ImportFrom(stmt):
-    level: Optional[int] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: int)]),
+    level: Optional[int] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
         default=None,
     )
-    module: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
-    names: Sequence[alias] = attrs.ib(
+    module: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    names: Sequence[alias] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
@@ -788,9 +805,9 @@ class ImportFrom(stmt):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Global(stmt):
-    names: Sequence[str] = attrs.ib(
+    names: Sequence[str] = attrs.field(
         factory=list, converter=DeepIterableConverter(convert_identifier)
     )
 
@@ -802,9 +819,9 @@ class Global(stmt):
         return cls(names=node_to_wast(node.names))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Nonlocal(stmt):
-    names: Sequence[str] = attrs.ib(
+    names: Sequence[str] = attrs.field(
         factory=list, converter=DeepIterableConverter(convert_identifier)
     )
 
@@ -816,9 +833,9 @@ class Nonlocal(stmt):
         return cls(names=node_to_wast(node.names))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Expr(stmt):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Expr(value=wast_to_node(self.value))
@@ -828,7 +845,7 @@ class Expr(stmt):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Pass(stmt):
     def _to_builtin(self):
         return ast.Pass()
@@ -838,7 +855,7 @@ class Pass(stmt):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Break(stmt):
     def _to_builtin(self):
         return ast.Break()
@@ -848,7 +865,7 @@ class Break(stmt):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Continue(stmt):
     def _to_builtin(self):
         return ast.Continue()
@@ -859,15 +876,17 @@ class Continue(stmt):
 
 
 class expr(Node):
-    @property
-    def _(self):
-        return BoundUnderscore(inner=self)
+    def __call__(self, *attrs):
+        ret = self
+        for name in reversed(attrs):
+            ret = Attribute(value=ret, attr=name)
+        return BoundUnderscore(ret)
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class BoolOp(expr):
-    op: boolop = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: boolop)])
-    values: Sequence[expr] = attrs.ib(
+    op: boolop = attrs.field(validator=ProxyInstanceOfValidator(lambda: boolop))
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -882,10 +901,10 @@ class BoolOp(expr):
         return cls(op=node_to_wast(node.op), values=node_to_wast(node.values))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class NamedExpr(expr):
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.NamedExpr(
@@ -897,11 +916,11 @@ class NamedExpr(expr):
         return cls(target=node_to_wast(node.target), value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class BinOp(expr):
-    left: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    op: operator = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: operator)])
-    right: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    left: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    op: operator = attrs.field(validator=ProxyInstanceOfValidator(lambda: operator))
+    right: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.BinOp(
@@ -919,10 +938,10 @@ class BinOp(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class UnaryOp(expr):
-    op: unaryop = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: unaryop)])
-    operand: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    op: unaryop = attrs.field(validator=ProxyInstanceOfValidator(lambda: unaryop))
+    operand: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.UnaryOp(op=wast_to_node(self.op), operand=wast_to_node(self.operand))
@@ -932,10 +951,10 @@ class UnaryOp(expr):
         return cls(op=node_to_wast(node.op), operand=node_to_wast(node.operand))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Lambda(expr):
-    args: arguments = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: arguments)])
-    body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    args: arguments = attrs.field(validator=ProxyInstanceOfValidator(lambda: arguments))
+    body: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Lambda(args=wast_to_node(self.args), body=wast_to_node(self.body))
@@ -945,11 +964,11 @@ class Lambda(expr):
         return cls(args=node_to_wast(node.args), body=node_to_wast(node.body))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class IfExp(expr):
-    body: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    orelse: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    test: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    body: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    orelse: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    test: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.IfExp(
@@ -967,15 +986,15 @@ class IfExp(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Dict(expr):
-    keys: Sequence[expr] = attrs.ib(
+    keys: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    values: Sequence[expr] = attrs.ib(
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -990,9 +1009,9 @@ class Dict(expr):
         return cls(keys=node_to_wast(node.keys), values=node_to_wast(node.values))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Set(expr):
-    elts: Sequence[expr] = attrs.ib(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -1007,10 +1026,10 @@ class Set(expr):
         return cls(elts=node_to_wast(node.elts))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class ListComp(expr):
-    elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    generators: Sequence[comprehension] = attrs.ib(
+    elt: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
@@ -1027,10 +1046,10 @@ class ListComp(expr):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class SetComp(expr):
-    elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    generators: Sequence[comprehension] = attrs.ib(
+    elt: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
@@ -1047,11 +1066,11 @@ class SetComp(expr):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class DictComp(expr):
-    key: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    generators: Sequence[comprehension] = attrs.ib(
+    key: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
@@ -1074,10 +1093,10 @@ class DictComp(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class GeneratorExp(expr):
-    elt: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    generators: Sequence[comprehension] = attrs.ib(
+    elt: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
@@ -1094,9 +1113,9 @@ class GeneratorExp(expr):
         return cls(elt=node_to_wast(node.elt), generators=node_to_wast(node.generators))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Await(expr):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Await(value=wast_to_node(self.value))
@@ -1106,10 +1125,10 @@ class Await(expr):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Yield(expr):
-    value: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1121,9 +1140,9 @@ class Yield(expr):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class YieldFrom(expr):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.YieldFrom(value=wast_to_node(self.value))
@@ -1133,16 +1152,16 @@ class YieldFrom(expr):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Compare(expr):
-    left: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    comparators: Sequence[expr] = attrs.ib(
+    left: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    comparators: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    ops: Sequence[cmpop] = attrs.ib(
+    ops: Sequence[cmpop] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: cmpop)
         ),
@@ -1165,16 +1184,16 @@ class Compare(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Call(expr):
-    func: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    args: Sequence[expr] = attrs.ib(
+    func: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    args: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    keywords: Sequence[keyword] = attrs.ib(
+    keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
@@ -1197,15 +1216,15 @@ class Call(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class FormattedValue(expr):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    conversion: Optional[int] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: int)]),
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    conversion: Optional[int] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
         default=None,
     )
-    format_spec: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    format_spec: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1225,9 +1244,9 @@ class FormattedValue(expr):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class JoinedStr(expr):
-    values: Sequence[expr] = attrs.ib(
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -1242,11 +1261,11 @@ class JoinedStr(expr):
         return cls(values=node_to_wast(node.values))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Constant(expr):
-    value: Any = attrs.ib()
-    kind: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    value: Any = attrs.field()
+    kind: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
     )
 
@@ -1260,10 +1279,10 @@ class Constant(expr):
         return cls(value=node_to_wast(node.value), kind=node_to_wast(node.kind))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Attribute(expr):
-    attr: str = attrs.ib(converter=convert_identifier)
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    attr: str = attrs.field(converter=convert_identifier)
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Attribute(
@@ -1275,10 +1294,10 @@ class Attribute(expr):
         return cls(attr=node_to_wast(node.attr), value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Subscript(expr):
-    slice: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    slice: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Subscript(
@@ -1290,9 +1309,9 @@ class Subscript(expr):
         return cls(slice=node_to_wast(node.slice), value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Starred(expr):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.Starred(value=wast_to_node(self.value))
@@ -1302,9 +1321,9 @@ class Starred(expr):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Name(expr):
-    id: str = attrs.ib(converter=convert_identifier)
+    id: str = attrs.field(converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.Name(id=wast_to_node(self.id))
@@ -1314,9 +1333,9 @@ class Name(expr):
         return cls(id=node_to_wast(node.id))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class List(expr):
-    elts: Sequence[expr] = attrs.ib(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -1331,9 +1350,9 @@ class List(expr):
         return cls(elts=node_to_wast(node.elts))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Tuple(expr):
-    elts: Sequence[expr] = attrs.ib(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -1348,18 +1367,18 @@ class Tuple(expr):
         return cls(elts=node_to_wast(node.elts))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Slice(expr):
-    lower: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    lower: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    step: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    step: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    upper: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    upper: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1383,7 +1402,7 @@ class expr_context(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Load(expr_context):
     def _to_builtin(self):
         return ast.Load()
@@ -1393,7 +1412,7 @@ class Load(expr_context):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Store(expr_context):
     def _to_builtin(self):
         return ast.Store()
@@ -1403,7 +1422,7 @@ class Store(expr_context):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Del(expr_context):
     def _to_builtin(self):
         return ast.Del()
@@ -1417,7 +1436,7 @@ class boolop(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class And(boolop):
     def _to_builtin(self):
         return ast.And()
@@ -1427,7 +1446,7 @@ class And(boolop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Or(boolop):
     def _to_builtin(self):
         return ast.Or()
@@ -1441,7 +1460,7 @@ class operator(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Add(operator):
     def _to_builtin(self):
         return ast.Add()
@@ -1451,7 +1470,7 @@ class Add(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Sub(operator):
     def _to_builtin(self):
         return ast.Sub()
@@ -1461,7 +1480,7 @@ class Sub(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Mult(operator):
     def _to_builtin(self):
         return ast.Mult()
@@ -1471,7 +1490,7 @@ class Mult(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatMult(operator):
     def _to_builtin(self):
         return ast.MatMult()
@@ -1481,7 +1500,7 @@ class MatMult(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Div(operator):
     def _to_builtin(self):
         return ast.Div()
@@ -1491,7 +1510,7 @@ class Div(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Mod(operator):
     def _to_builtin(self):
         return ast.Mod()
@@ -1501,7 +1520,7 @@ class Mod(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Pow(operator):
     def _to_builtin(self):
         return ast.Pow()
@@ -1511,7 +1530,7 @@ class Pow(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class LShift(operator):
     def _to_builtin(self):
         return ast.LShift()
@@ -1521,7 +1540,7 @@ class LShift(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class RShift(operator):
     def _to_builtin(self):
         return ast.RShift()
@@ -1531,7 +1550,7 @@ class RShift(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class BitOr(operator):
     def _to_builtin(self):
         return ast.BitOr()
@@ -1541,7 +1560,7 @@ class BitOr(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class BitXor(operator):
     def _to_builtin(self):
         return ast.BitXor()
@@ -1551,7 +1570,7 @@ class BitXor(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class BitAnd(operator):
     def _to_builtin(self):
         return ast.BitAnd()
@@ -1561,7 +1580,7 @@ class BitAnd(operator):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class FloorDiv(operator):
     def _to_builtin(self):
         return ast.FloorDiv()
@@ -1575,7 +1594,7 @@ class unaryop(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Invert(unaryop):
     def _to_builtin(self):
         return ast.Invert()
@@ -1585,7 +1604,7 @@ class Invert(unaryop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Not(unaryop):
     def _to_builtin(self):
         return ast.Not()
@@ -1595,7 +1614,7 @@ class Not(unaryop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class UAdd(unaryop):
     def _to_builtin(self):
         return ast.UAdd()
@@ -1605,7 +1624,7 @@ class UAdd(unaryop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class USub(unaryop):
     def _to_builtin(self):
         return ast.USub()
@@ -1619,7 +1638,7 @@ class cmpop(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Eq(cmpop):
     def _to_builtin(self):
         return ast.Eq()
@@ -1629,7 +1648,7 @@ class Eq(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class NotEq(cmpop):
     def _to_builtin(self):
         return ast.NotEq()
@@ -1639,7 +1658,7 @@ class NotEq(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Lt(cmpop):
     def _to_builtin(self):
         return ast.Lt()
@@ -1649,7 +1668,7 @@ class Lt(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class LtE(cmpop):
     def _to_builtin(self):
         return ast.LtE()
@@ -1659,7 +1678,7 @@ class LtE(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Gt(cmpop):
     def _to_builtin(self):
         return ast.Gt()
@@ -1669,7 +1688,7 @@ class Gt(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class GtE(cmpop):
     def _to_builtin(self):
         return ast.GtE()
@@ -1679,7 +1698,7 @@ class GtE(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class Is(cmpop):
     def _to_builtin(self):
         return ast.Is()
@@ -1689,7 +1708,7 @@ class Is(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class IsNot(cmpop):
     def _to_builtin(self):
         return ast.IsNot()
@@ -1699,7 +1718,7 @@ class IsNot(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class In(cmpop):
     def _to_builtin(self):
         return ast.In()
@@ -1709,7 +1728,7 @@ class In(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class NotIn(cmpop):
     def _to_builtin(self):
         return ast.NotIn()
@@ -1719,12 +1738,12 @@ class NotIn(cmpop):
         return cls()
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class comprehension(Node):
-    is_async: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: int)])
-    iter: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    target: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    ifs: Sequence[expr] = attrs.ib(
+    is_async: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
+    iter: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    target: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    ifs: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
@@ -1753,17 +1772,17 @@ class excepthandler(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class ExceptHandler(excepthandler):
-    body: Sequence[stmt] = attrs.ib(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
-    type: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    type: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1783,38 +1802,38 @@ class ExceptHandler(excepthandler):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class arguments(Node):
-    args: Sequence[arg] = attrs.ib(
+    args: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
         factory=list,
     )
-    defaults: Sequence[expr] = attrs.ib(
+    defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    kw_defaults: Sequence[expr] = attrs.ib(
+    kw_defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    kwarg: Optional[arg] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: arg)]),
+    kwarg: Optional[arg] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
         default=None,
     )
-    kwonlyargs: Sequence[arg] = attrs.ib(
+    kwonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
         factory=list,
     )
-    posonlyargs: Sequence[arg] = attrs.ib(
+    posonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
         factory=list,
     )
-    vararg: Optional[arg] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: arg)]),
+    vararg: Optional[arg] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
         default=None,
     )
 
@@ -1842,15 +1861,15 @@ class arguments(Node):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class arg(Node):
-    arg: str = attrs.ib(converter=convert_identifier)
-    annotation: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    arg: str = attrs.field(converter=convert_identifier)
+    annotation: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
-    type_comment: Optional[str] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: str)]),
+    type_comment: Optional[str] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
         default=None,
         repr=False,
     )
@@ -1871,10 +1890,10 @@ class arg(Node):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class keyword(Node):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    arg: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    arg: Optional[str] = attrs.field(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.keyword(value=wast_to_node(self.value), arg=wast_to_node(self.arg))
@@ -1884,10 +1903,10 @@ class keyword(Node):
         return cls(value=node_to_wast(node.value), arg=node_to_wast(node.arg))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class alias(Node):
-    name: str = attrs.ib(converter=convert_identifier)
-    asname: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
+    name: str = attrs.field(converter=convert_identifier)
+    asname: Optional[str] = attrs.field(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.alias(name=wast_to_node(self.name), asname=wast_to_node(self.asname))
@@ -1897,11 +1916,11 @@ class alias(Node):
         return cls(name=node_to_wast(node.name), asname=node_to_wast(node.asname))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class withitem(Node):
-    context_expr: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    optional_vars: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    context_expr: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    optional_vars: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1919,17 +1938,17 @@ class withitem(Node):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class match_case(Node):
-    pattern: pattern = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: pattern)])
-    body: Sequence[stmt] = attrs.ib(
+    pattern: pattern = attrs.field(validator=ProxyInstanceOfValidator(lambda: pattern))
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
         factory=list,
     )
-    guard: Optional[expr] = attrs.ib(
-        validator=attrs.validators.optional([ProxyInstanceOfValidator(lambda: expr)]),
+    guard: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         default=None,
     )
 
@@ -1953,9 +1972,9 @@ class pattern(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchValue(pattern):
-    value: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
+    value: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
 
     def _to_builtin(self):
         return ast.MatchValue(value=wast_to_node(self.value))
@@ -1965,9 +1984,9 @@ class MatchValue(pattern):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchSingleton(pattern):
-    value: Any = attrs.ib()
+    value: Any = attrs.field()
 
     def _to_builtin(self):
         return ast.MatchSingleton(value=wast_to_node(self.value))
@@ -1977,9 +1996,9 @@ class MatchSingleton(pattern):
         return cls(value=node_to_wast(node.value))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchSequence(pattern):
-    patterns: Sequence[pattern] = attrs.ib(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
@@ -1994,21 +2013,21 @@ class MatchSequence(pattern):
         return cls(patterns=node_to_wast(node.patterns))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchMapping(pattern):
-    keys: Sequence[expr] = attrs.ib(
+    keys: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
         factory=list,
     )
-    patterns: Sequence[pattern] = attrs.ib(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
         factory=list,
     )
-    rest: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
+    rest: Optional[str] = attrs.field(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.MatchMapping(
@@ -2026,19 +2045,19 @@ class MatchMapping(pattern):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchClass(pattern):
-    cls: expr = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: expr)])
-    kwd_attrs: Sequence[str] = attrs.ib(
+    cls: expr = attrs.field(validator=ProxyInstanceOfValidator(lambda: expr))
+    kwd_attrs: Sequence[str] = attrs.field(
         factory=list, converter=DeepIterableConverter(convert_identifier)
     )
-    kwd_patterns: Sequence[pattern] = attrs.ib(
+    kwd_patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
         factory=list,
     )
-    patterns: Sequence[pattern] = attrs.ib(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
@@ -2063,9 +2082,9 @@ class MatchClass(pattern):
         )
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchStar(pattern):
-    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
+    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
 
     def _to_builtin(self):
         return ast.MatchStar(name=wast_to_node(self.name))
@@ -2075,13 +2094,11 @@ class MatchStar(pattern):
         return cls(name=node_to_wast(node.name))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchAs(pattern):
-    name: Optional[str] = attrs.ib(default=None, converter=convert_identifier)
-    pattern: Optional[pattern] = attrs.ib(
-        validator=attrs.validators.optional(
-            [ProxyInstanceOfValidator(lambda: pattern)]
-        ),
+    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    pattern: Optional[pattern] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: pattern)),
         default=None,
     )
 
@@ -2095,9 +2112,9 @@ class MatchAs(pattern):
         return cls(name=node_to_wast(node.name), pattern=node_to_wast(node.pattern))
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class MatchOr(pattern):
-    patterns: Sequence[pattern] = attrs.ib(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
@@ -2116,10 +2133,10 @@ class type_ignore(Node):
     pass
 
 
-@attrs.s(hash=True, slots=True, eq=True)
+@attrs.define(hash=True, slots=True, eq=True)
 class TypeIgnore(type_ignore):
-    lineno: int = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: int)])
-    tag: str = attrs.ib(validator=[ProxyInstanceOfValidator(lambda: str)])
+    lineno: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
+    tag: str = attrs.field(validator=ProxyInstanceOfValidator(lambda: str))
 
     def _to_builtin(self):
         return ast.TypeIgnore(

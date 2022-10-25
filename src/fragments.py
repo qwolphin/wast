@@ -1,23 +1,24 @@
 from pathlib import Path
-import ast
+from activated_wast import w
 
 
 def load_fragment(entry):
     text = entry.read_text()
-    raw = ast.parse(text)
-    body = raw.body
+    raw = w.parse(text)
+    body = raw.body  # unwrap module
 
     if len(body) == 0:
         raise ValueError(
             f"Fragment {entry.stem} is empty\n\nFull path {entry.resolve(strict=True)}"
         )
 
-    # extract expressions from statements
-    if all(x.__class__.__name__ == "Expr" for x in body):
+    # extract expressions from Expr()
+    if all(isinstance(x, w.Expr) for x in body):
         body = [x.value for x in body]
 
     # extract single statement/expression
     if len(body) == 1:
+        assert isinstance(body[0], w.Node)
         return body[0]
 
     return body
