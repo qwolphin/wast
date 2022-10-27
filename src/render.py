@@ -2,11 +2,11 @@ import asdl
 import attrs
 from activated_wast import w, _
 from itertools import chain
-from fragments import FRAGMENTS
+from fragments import FRAGMENTS, report_unused_fragments
 
 
 def mk_io_validator(val):
-    return _.ProxyInstanceOfValidator(w.Lambda(w.arguments(), val))._
+    return _.ProxyInstanceOfValidator(w.Lambda(w.arguments(), val))
 
 
 def const(val):
@@ -26,8 +26,66 @@ class Field:
         return self.spec.type
 
     @property
+    def opt(self):
+        return self.spec.opt
+
+    @property
+    def seq(self):
+        return self.spec.seq
+
+    @property
     def has_default(self):
-        return self.spec.opt or self.spec.seq
+        return self.opt or self.seq
+
+    @property
+    def is_object(self):
+        return self.type not in {"identifier", "string", "int", "constant"}
+
+    def mk_from_to_builtin(self, value_expr, fn_expr):
+        if self.is_object:
+            if self.opt:
+                return w.IfExp(
+                    body=const(None),
+                    orelse=fn_expr()(value_expr)._,
+                    test=w.Compare(
+                        left=value_expr, comparators=[const(None)], ops=[w.Is()]
+                    ),
+                )
+            elif self.seq:
+                return w.ListComp(
+                    elt=fn_expr()(_.x._)._,
+                    generators=[
+                        w.comprehension(is_async=0, iter=value_expr, target=_.x._)
+                    ],
+                )
+            else:
+                return fn_expr()(value_expr)._
+        else:
+            return value_expr
+
+    @property
+    def nodes_iter_entry(self):
+        if not self.is_object:
+            return []
+
+        val = _.self._(self.name)._
+        iter = val()._nodes_iter()._
+        if self.opt:
+            ret = w.If(
+                test=w.Compare(left=val, comparators=[const(None)], ops=[w.IsNot()]),
+                body=[w.Expr(w.YieldFrom(value=iter))],
+            )
+        elif self.seq:
+            inner = w.If(
+                test=w.Compare(left=_.x._, comparators=[const(None)], ops=[w.IsNot()]),
+                body=[w.Expr(w.YieldFrom(value=_.x._nodes_iter()._))],
+            )
+            ret = w.For(iter=val, target=_.x._, body=[inner])
+
+        else:
+            ret = w.Expr(w.YieldFrom(value=iter))
+
+        return [ret]
 
     @property
     def rendered(self):
@@ -49,9 +107,10 @@ class Field:
                 annotation = _.Any._
             case _:
                 annotation = _(self.type)._
+                converter = _.unwrap_underscore._
                 validators += [mk_io_validator(annotation)]
 
-        assert len(validators) < 2  # FIXME
+        assert len(validators) < 2  # fixme
 
         field_args = {}
         if spec.opt:
@@ -99,7 +158,7 @@ class Field:
 class ClassSuffixMixin:
     @property
     def class_suffix(self):
-        key = f"class_suffix_{self.name}"
+        key = f"class_suffix/{self.name}"
         try:
             return FRAGMENTS[key]
         except KeyError:
@@ -117,7 +176,8 @@ class FieldsMixin(ClassSuffixMixin):
     @property
     def to_builtin(self):
         kwargs = {
-            x.name: _.wast_to_node(_.self._(x.name)._)._ for x in self.parsed_fields
+            x.name: x.mk_from_to_builtin(_.self._(x.name)._, _.to_builtin._)
+            for x in self.parsed_fields
         }
         ret = _.ast._(self.name)(**kwargs)._
 
@@ -132,7 +192,8 @@ class FieldsMixin(ClassSuffixMixin):
     @property
     def from_builtin(self):
         kwargs = {
-            x.name: _.node_to_wast(_.node._(x.name)._)._ for x in self.parsed_fields
+            x.name: x.mk_from_to_builtin(_.node._(x.name)._, _.from_builtin._)
+            for x in self.parsed_fields
         }
         ret = _.cls(**kwargs)._
 
@@ -146,17 +207,53 @@ class FieldsMixin(ClassSuffixMixin):
         )
 
     @property
+    def transform(self):
+        kwargs = {
+            x.name: x.mk_from_to_builtin(_.self._(x.name)._, _.node_transformer._)
+            for x in self.parsed_fields
+        }
+        ret = _(self.name)(**kwargs)._
+
+        return w.FunctionDef(
+            name="_transform",
+            args=w.arguments(
+                args=[
+                    w.arg(arg="self"),
+                    w.arg(arg="node_transformer"),
+                    w.arg(arg="context"),
+                ],
+            ),
+            body=[w.Return(ret)],
+        )
+
+    @property
+    def nodes_iter(self):
+        body = [
+            w.Expr(w.Yield(value=_.self._)),
+            *chain.from_iterable(x.nodes_iter_entry for x in self.parsed_fields),
+        ]
+        return w.FunctionDef(
+            name="_nodes_iter",
+            args=w.arguments(
+                args=[
+                    w.arg(arg="self"),
+                ],
+            ),
+            body=body,
+        )
+
+    @property
     def rendered(self):
         node = w.ClassDef(
-            decorator_list=[
-                _.attrs.define(hash=const(True), slots=const(True), eq=const(True))._
-            ],
+            decorator_list=[_.attrs.define()._],
             bases=[_(self.base_name)._],
             name=self.name,
             body=[
                 *chain.from_iterable(x.rendered for x in self.parsed_fields),
                 self.to_builtin,
                 self.from_builtin,
+                self.transform,
+                self.nodes_iter,
                 *self.class_suffix,
             ],
         )
@@ -183,6 +280,10 @@ class Sum(ClassSuffixMixin):
     spec: asdl.Sum
 
     @property
+    def nodes(self):
+        return self.parsed_constructors
+
+    @property
     def parsed_constructors(self):
         return [Constructor(self.name, spec) for spec in self.spec.types]
 
@@ -203,6 +304,10 @@ class Sum(ClassSuffixMixin):
 class Product(FieldsMixin):
     name: str
     spec: asdl.Product
+
+    @property
+    def nodes(self):
+        return [self]
 
     @property
     def base_name(self):
@@ -228,9 +333,18 @@ class TopLevel:
         return [self.parse_dfn(x.name, x.value) for x in self.dfns]
 
     @property
+    def nodes(self):
+        return [*chain.from_iterable(x.nodes for x in self.dfns_parsed)]
+
+    @property
     def rendered(self):
-        nodes = list(chain.from_iterable(x.rendered for x in self.dfns_parsed))
-        return w.Module(nodes)
+        registry = w.Assign(
+            value=_.dict(**{x.name: _(x.name)._ for x in self.nodes})._,
+            targets=[_.NODES._],
+        )
+        return w.Module(
+            [*chain.from_iterable(x.rendered for x in self.dfns_parsed), registry]
+        )
 
 
 dfns = asdl.parse("Python.asdl").dfns
@@ -239,3 +353,5 @@ header = "".join(open("header.py", "r"))
 rendered = top_level.rendered
 
 print(header + w.unparse(rendered))
+
+report_unused_fragments()

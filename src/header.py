@@ -4,44 +4,40 @@ import attrs
 from typing import Optional, Sequence, Callable
 from .validators import (
     convert_identifier,
+    unwrap_underscore,
     DeepIterableConverter,
     ProxyInstanceOfValidator,
 )
 
 
-def unparse(node):
-    n = ast.fix_missing_locations(node._to_builtin())
-    return ast.unparse(n)
+def unparse(node: Node) -> str:
+    tree = to_builtin(node)
+    tree = ast.fix_missing_locations(tree)
+    return ast.unparse(tree)
 
 
-def parse(text):
-    node = ast.parse(text)
-    return node_to_wast(node)
+def parse(text: str) -> Node:
+    tree = ast.parse(text)
+    return from_builtin(tree)
 
 
 class Node:
     pass
 
 
-def node_to_wast(node):
-    match node:
-        case int() | float() | str() | None:
-            return node
-        case list() | tuple():
-            return [node_to_wast(x) for x in node]
-        case _:
-            return globals()[node.__class__.__name__]._from_builtin(node)
+def to_builtin(node: Node):
+    assert isinstance(node, Node)
+    return node._to_builtin()
 
 
-def wast_to_node(node):
-    match node:
-        case int() | float() | str() | None:
-            return node
-        case list() | tuple():
-            return [wast_to_node(x) for x in node]
-        case _:
-            return node._to_builtin()
+def from_builtin(node: ast.AST) -> Node:
+    assert isinstance(node, ast.AST)
+    t = node.__class__.__name__
+    return NODES[t]._from_builtin(node)
 
+@attrs.define
+class TransformerContext:
+    parents: Sequence[Node] = attrs.field(factory=list)
 
 class FreeUnderscore:
     def __getattr__(self, name):
