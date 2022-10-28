@@ -98,7 +98,7 @@ class BoundUnderscore(object):
 
     def __lshift__(self, other):
         return BoundUnderscore(
-            BinOp(left=self.__inner__, op=LShift()(), right=other.__inner__)
+            BinOp(left=self.__inner__, op=LShift(), right=other.__inner__)
         )
 
     def __rshift__(self, other):

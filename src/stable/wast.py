@@ -81,6 +81,86 @@ class BoundUnderscore(object):
             BinOp(left=self.__inner__, op=Add(), right=other.__inner__)
         )
 
+    def __and__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=And(), right=other.__inner__)
+        )
+
+    def __floordiv__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=FloorDiv(), right=other.__inner__)
+        )
+
+    def __mod__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Mod(), right=other.__inner__)
+        )
+
+    def __lshift__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=LShift()(), right=other.__inner__)
+        )
+
+    def __rshift__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=RShift(), right=other.__inner__)
+        )
+
+    def __matmul__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=MatMult(), right=other.__inner__)
+        )
+
+    def __sub__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Sub(), right=other.__inner__)
+        )
+
+    def __pow__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Mod(), right=other.__inner__)
+        )
+
+    def __div__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Div(), right=other.__inner__)
+        )
+
+    def __lt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Lt()])
+        )
+
+    def __gt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Gt()])
+        )
+
+    def __le__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Le()])
+        )
+
+    def __ge__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Ge()])
+        )
+
+    def __lt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Lt()])
+        )
+
+    def __eq__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Eq()])
+        )
+
+    def __ne__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[NotEq()])
+        )
+
     def __getitem__(self, key):
         if isinstance(key, slice):
             key = slice(lower=key.start, upper=key.stop, step=key.step)
@@ -102,16 +182,16 @@ class Module(mod):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_ignores: Sequence[type_ignore] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: type_ignore)
         ),
+        converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
         repr=False,
-        converter=DeepIterableConverter(unwrap_underscore),
     )
 
     def _to_builtin(self):
@@ -129,8 +209,8 @@ class Module(mod):
 
     def _transform(self, node_transformer, context):
         return Module(
-            body=[node_transformer(x) for x in self.body],
-            type_ignores=[node_transformer(x) for x in self.type_ignores],
+            body=[node_transformer(x, context) for x in self.body],
+            type_ignores=[node_transformer(x, context) for x in self.type_ignores],
         )
 
     def _nodes_iter(self):
@@ -149,8 +229,8 @@ class Interactive(mod):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -161,7 +241,7 @@ class Interactive(mod):
         return cls(body=[from_builtin(x) for x in node.body])
 
     def _transform(self, node_transformer, context):
-        return Interactive(body=[node_transformer(x) for x in self.body])
+        return Interactive(body=[node_transformer(x, context) for x in self.body])
 
     def _nodes_iter(self):
         yield self
@@ -184,7 +264,7 @@ class Expression(mod):
         return cls(body=from_builtin(node.body))
 
     def _transform(self, node_transformer, context):
-        return Expression(body=node_transformer(self.body))
+        return Expression(body=node_transformer(self.body, context))
 
     def _nodes_iter(self):
         yield self
@@ -200,8 +280,8 @@ class FunctionType(mod):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -219,8 +299,8 @@ class FunctionType(mod):
 
     def _transform(self, node_transformer, context):
         return FunctionType(
-            returns=node_transformer(self.returns),
-            argtypes=[node_transformer(x) for x in self.argtypes],
+            returns=node_transformer(self.returns, context),
+            argtypes=[node_transformer(x, context) for x in self.argtypes],
         )
 
     def _nodes_iter(self):
@@ -246,20 +326,20 @@ class FunctionDef(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     returns: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -290,11 +370,13 @@ class FunctionDef(stmt):
 
     def _transform(self, node_transformer, context):
         return FunctionDef(
-            args=node_transformer(self.args),
+            args=node_transformer(self.args, context),
             name=self.name,
-            body=[node_transformer(x) for x in self.body],
-            decorator_list=[node_transformer(x) for x in self.decorator_list],
-            returns=None if self.returns is None else node_transformer(self.returns),
+            body=[node_transformer(x, context) for x in self.body],
+            decorator_list=[node_transformer(x, context) for x in self.decorator_list],
+            returns=None
+            if self.returns is None
+            else node_transformer(self.returns, context),
             type_comment=self.type_comment,
         )
 
@@ -322,20 +404,20 @@ class AsyncFunctionDef(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     returns: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -366,11 +448,13 @@ class AsyncFunctionDef(stmt):
 
     def _transform(self, node_transformer, context):
         return AsyncFunctionDef(
-            args=node_transformer(self.args),
+            args=node_transformer(self.args, context),
             name=self.name,
-            body=[node_transformer(x) for x in self.body],
-            decorator_list=[node_transformer(x) for x in self.decorator_list],
-            returns=None if self.returns is None else node_transformer(self.returns),
+            body=[node_transformer(x, context) for x in self.body],
+            decorator_list=[node_transformer(x, context) for x in self.decorator_list],
+            returns=None
+            if self.returns is None
+            else node_transformer(self.returns, context),
             type_comment=self.type_comment,
         )
 
@@ -394,29 +478,29 @@ class ClassDef(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -441,10 +525,10 @@ class ClassDef(stmt):
     def _transform(self, node_transformer, context):
         return ClassDef(
             name=self.name,
-            bases=[node_transformer(x) for x in self.bases],
-            body=[node_transformer(x) for x in self.body],
-            decorator_list=[node_transformer(x) for x in self.decorator_list],
-            keywords=[node_transformer(x) for x in self.keywords],
+            bases=[node_transformer(x, context) for x in self.bases],
+            body=[node_transformer(x, context) for x in self.body],
+            decorator_list=[node_transformer(x, context) for x in self.decorator_list],
+            keywords=[node_transformer(x, context) for x in self.keywords],
         )
 
     def _nodes_iter(self):
@@ -467,8 +551,8 @@ class ClassDef(stmt):
 class Return(stmt):
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -480,7 +564,7 @@ class Return(stmt):
 
     def _transform(self, node_transformer, context):
         return Return(
-            value=None if self.value is None else node_transformer(self.value)
+            value=None if self.value is None else node_transformer(self.value, context)
         )
 
     def _nodes_iter(self):
@@ -495,8 +579,8 @@ class Delete(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -507,7 +591,7 @@ class Delete(stmt):
         return cls(targets=[from_builtin(x) for x in node.targets])
 
     def _transform(self, node_transformer, context):
-        return Delete(targets=[node_transformer(x) for x in self.targets])
+        return Delete(targets=[node_transformer(x, context) for x in self.targets])
 
     def _nodes_iter(self):
         yield self
@@ -525,8 +609,8 @@ class Assign(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -551,8 +635,8 @@ class Assign(stmt):
 
     def _transform(self, node_transformer, context):
         return Assign(
-            value=node_transformer(self.value),
-            targets=[node_transformer(x) for x in self.targets],
+            value=node_transformer(self.value, context),
+            targets=[node_transformer(x, context) for x in self.targets],
             type_comment=self.type_comment,
         )
 
@@ -594,9 +678,9 @@ class AugAssign(stmt):
 
     def _transform(self, node_transformer, context):
         return AugAssign(
-            op=node_transformer(self.op),
-            target=node_transformer(self.target),
-            value=node_transformer(self.value),
+            op=node_transformer(self.op, context),
+            target=node_transformer(self.target, context),
+            value=node_transformer(self.value, context),
         )
 
     def _nodes_iter(self):
@@ -617,8 +701,8 @@ class AnnAssign(stmt):
     )
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -640,10 +724,10 @@ class AnnAssign(stmt):
 
     def _transform(self, node_transformer, context):
         return AnnAssign(
-            annotation=node_transformer(self.annotation),
+            annotation=node_transformer(self.annotation, context),
             simple=self.simple,
-            target=node_transformer(self.target),
-            value=None if self.value is None else node_transformer(self.value),
+            target=node_transformer(self.target, context),
+            value=None if self.value is None else node_transformer(self.value, context),
         )
 
     def _nodes_iter(self):
@@ -666,15 +750,15 @@ class For(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -703,10 +787,10 @@ class For(stmt):
 
     def _transform(self, node_transformer, context):
         return For(
-            iter=node_transformer(self.iter),
-            target=node_transformer(self.target),
-            body=[node_transformer(x) for x in self.body],
-            orelse=[node_transformer(x) for x in self.orelse],
+            iter=node_transformer(self.iter, context),
+            target=node_transformer(self.target, context),
+            body=[node_transformer(x, context) for x in self.body],
+            orelse=[node_transformer(x, context) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
@@ -734,15 +818,15 @@ class AsyncFor(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -771,10 +855,10 @@ class AsyncFor(stmt):
 
     def _transform(self, node_transformer, context):
         return AsyncFor(
-            iter=node_transformer(self.iter),
-            target=node_transformer(self.target),
-            body=[node_transformer(x) for x in self.body],
-            orelse=[node_transformer(x) for x in self.orelse],
+            iter=node_transformer(self.iter, context),
+            target=node_transformer(self.target, context),
+            body=[node_transformer(x, context) for x in self.body],
+            orelse=[node_transformer(x, context) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
@@ -799,15 +883,15 @@ class While(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -827,9 +911,9 @@ class While(stmt):
 
     def _transform(self, node_transformer, context):
         return While(
-            test=node_transformer(self.test),
-            body=[node_transformer(x) for x in self.body],
-            orelse=[node_transformer(x) for x in self.orelse],
+            test=node_transformer(self.test, context),
+            body=[node_transformer(x, context) for x in self.body],
+            orelse=[node_transformer(x, context) for x in self.orelse],
         )
 
     def _nodes_iter(self):
@@ -852,15 +936,15 @@ class If(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -880,9 +964,9 @@ class If(stmt):
 
     def _transform(self, node_transformer, context):
         return If(
-            test=node_transformer(self.test),
-            body=[node_transformer(x) for x in self.body],
-            orelse=[node_transformer(x) for x in self.orelse],
+            test=node_transformer(self.test, context),
+            body=[node_transformer(x, context) for x in self.body],
+            orelse=[node_transformer(x, context) for x in self.orelse],
         )
 
     def _nodes_iter(self):
@@ -902,15 +986,15 @@ class With(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -935,8 +1019,8 @@ class With(stmt):
 
     def _transform(self, node_transformer, context):
         return With(
-            body=[node_transformer(x) for x in self.body],
-            items=[node_transformer(x) for x in self.items],
+            body=[node_transformer(x, context) for x in self.body],
+            items=[node_transformer(x, context) for x in self.items],
             type_comment=self.type_comment,
         )
 
@@ -956,15 +1040,15 @@ class AsyncWith(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -989,8 +1073,8 @@ class AsyncWith(stmt):
 
     def _transform(self, node_transformer, context):
         return AsyncWith(
-            body=[node_transformer(x) for x in self.body],
-            items=[node_transformer(x) for x in self.items],
+            body=[node_transformer(x, context) for x in self.body],
+            items=[node_transformer(x, context) for x in self.items],
             type_comment=self.type_comment,
         )
 
@@ -1013,8 +1097,8 @@ class Match(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: match_case)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1031,8 +1115,8 @@ class Match(stmt):
 
     def _transform(self, node_transformer, context):
         return Match(
-            subject=node_transformer(self.subject),
-            cases=[node_transformer(x) for x in self.cases],
+            subject=node_transformer(self.subject, context),
+            cases=[node_transformer(x, context) for x in self.cases],
         )
 
     def _nodes_iter(self):
@@ -1047,13 +1131,13 @@ class Match(stmt):
 class Raise(stmt):
     cause: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     exc: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -1071,8 +1155,8 @@ class Raise(stmt):
 
     def _transform(self, node_transformer, context):
         return Raise(
-            cause=None if self.cause is None else node_transformer(self.cause),
-            exc=None if self.exc is None else node_transformer(self.exc),
+            cause=None if self.cause is None else node_transformer(self.cause, context),
+            exc=None if self.exc is None else node_transformer(self.exc, context),
         )
 
     def _nodes_iter(self):
@@ -1089,29 +1173,29 @@ class Try(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     finalbody: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     handlers: Sequence[excepthandler] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: excepthandler)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1133,10 +1217,10 @@ class Try(stmt):
 
     def _transform(self, node_transformer, context):
         return Try(
-            body=[node_transformer(x) for x in self.body],
-            finalbody=[node_transformer(x) for x in self.finalbody],
-            handlers=[node_transformer(x) for x in self.handlers],
-            orelse=[node_transformer(x) for x in self.orelse],
+            body=[node_transformer(x, context) for x in self.body],
+            finalbody=[node_transformer(x, context) for x in self.finalbody],
+            handlers=[node_transformer(x, context) for x in self.handlers],
+            orelse=[node_transformer(x, context) for x in self.orelse],
         )
 
     def _nodes_iter(self):
@@ -1162,8 +1246,8 @@ class Assert(stmt):
     )
     msg: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -1181,8 +1265,8 @@ class Assert(stmt):
 
     def _transform(self, node_transformer, context):
         return Assert(
-            test=node_transformer(self.test),
-            msg=None if self.msg is None else node_transformer(self.msg),
+            test=node_transformer(self.test, context),
+            msg=None if self.msg is None else node_transformer(self.msg, context),
         )
 
     def _nodes_iter(self):
@@ -1198,8 +1282,8 @@ class Import(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1210,7 +1294,7 @@ class Import(stmt):
         return cls(names=[from_builtin(x) for x in node.names])
 
     def _transform(self, node_transformer, context):
-        return Import(names=[node_transformer(x) for x in self.names])
+        return Import(names=[node_transformer(x, context) for x in self.names])
 
     def _nodes_iter(self):
         yield self
@@ -1225,13 +1309,15 @@ class ImportFrom(stmt):
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
         default=None,
     )
-    module: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    module: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
     names: Sequence[alias] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1253,7 +1339,7 @@ class ImportFrom(stmt):
         return ImportFrom(
             level=self.level,
             module=self.module,
-            names=[node_transformer(x) for x in self.names],
+            names=[node_transformer(x, context) for x in self.names],
         )
 
     def _nodes_iter(self):
@@ -1266,7 +1352,7 @@ class ImportFrom(stmt):
 @attrs.define()
 class Global(stmt):
     names: Sequence[str] = attrs.field(
-        factory=list, converter=DeepIterableConverter(convert_identifier)
+        converter=DeepIterableConverter(convert_identifier), factory=list
     )
 
     def _to_builtin(self):
@@ -1286,7 +1372,7 @@ class Global(stmt):
 @attrs.define()
 class Nonlocal(stmt):
     names: Sequence[str] = attrs.field(
-        factory=list, converter=DeepIterableConverter(convert_identifier)
+        converter=DeepIterableConverter(convert_identifier), factory=list
     )
 
     def _to_builtin(self):
@@ -1317,7 +1403,7 @@ class Expr(stmt):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return Expr(value=node_transformer(self.value))
+        return Expr(value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -1389,8 +1475,8 @@ class BoolOp(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1406,8 +1492,8 @@ class BoolOp(expr):
 
     def _transform(self, node_transformer, context):
         return BoolOp(
-            op=node_transformer(self.op),
-            values=[node_transformer(x) for x in self.values],
+            op=node_transformer(self.op, context),
+            values=[node_transformer(x, context) for x in self.values],
         )
 
     def _nodes_iter(self):
@@ -1438,7 +1524,8 @@ class NamedExpr(expr):
 
     def _transform(self, node_transformer, context):
         return NamedExpr(
-            target=node_transformer(self.target), value=node_transformer(self.value)
+            target=node_transformer(self.target, context),
+            value=node_transformer(self.value, context),
         )
 
     def _nodes_iter(self):
@@ -1477,9 +1564,9 @@ class BinOp(expr):
 
     def _transform(self, node_transformer, context):
         return BinOp(
-            left=node_transformer(self.left),
-            op=node_transformer(self.op),
-            right=node_transformer(self.right),
+            left=node_transformer(self.left, context),
+            op=node_transformer(self.op, context),
+            right=node_transformer(self.right, context),
         )
 
     def _nodes_iter(self):
@@ -1507,7 +1594,8 @@ class UnaryOp(expr):
 
     def _transform(self, node_transformer, context):
         return UnaryOp(
-            op=node_transformer(self.op), operand=node_transformer(self.operand)
+            op=node_transformer(self.op, context),
+            operand=node_transformer(self.operand, context),
         )
 
     def _nodes_iter(self):
@@ -1535,7 +1623,8 @@ class Lambda(expr):
 
     def _transform(self, node_transformer, context):
         return Lambda(
-            args=node_transformer(self.args), body=node_transformer(self.body)
+            args=node_transformer(self.args, context),
+            body=node_transformer(self.body, context),
         )
 
     def _nodes_iter(self):
@@ -1573,9 +1662,9 @@ class IfExp(expr):
 
     def _transform(self, node_transformer, context):
         return IfExp(
-            body=node_transformer(self.body),
-            orelse=node_transformer(self.orelse),
-            test=node_transformer(self.test),
+            body=node_transformer(self.body, context),
+            orelse=node_transformer(self.orelse, context),
+            test=node_transformer(self.test, context),
         )
 
     def _nodes_iter(self):
@@ -1591,15 +1680,15 @@ class Dict(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1617,8 +1706,8 @@ class Dict(expr):
 
     def _transform(self, node_transformer, context):
         return Dict(
-            keys=[node_transformer(x) for x in self.keys],
-            values=[node_transformer(x) for x in self.values],
+            keys=[node_transformer(x, context) for x in self.keys],
+            values=[node_transformer(x, context) for x in self.values],
         )
 
     def _nodes_iter(self):
@@ -1637,8 +1726,8 @@ class Set(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1649,7 +1738,7 @@ class Set(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        return Set(elts=[node_transformer(x) for x in self.elts])
+        return Set(elts=[node_transformer(x, context) for x in self.elts])
 
     def _nodes_iter(self):
         yield self
@@ -1667,8 +1756,8 @@ class ListComp(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1686,8 +1775,8 @@ class ListComp(expr):
 
     def _transform(self, node_transformer, context):
         return ListComp(
-            elt=node_transformer(self.elt),
-            generators=[node_transformer(x) for x in self.generators],
+            elt=node_transformer(self.elt, context),
+            generators=[node_transformer(x, context) for x in self.generators],
         )
 
     def _nodes_iter(self):
@@ -1707,8 +1796,8 @@ class SetComp(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1726,8 +1815,8 @@ class SetComp(expr):
 
     def _transform(self, node_transformer, context):
         return SetComp(
-            elt=node_transformer(self.elt),
-            generators=[node_transformer(x) for x in self.generators],
+            elt=node_transformer(self.elt, context),
+            generators=[node_transformer(x, context) for x in self.generators],
         )
 
     def _nodes_iter(self):
@@ -1750,8 +1839,8 @@ class DictComp(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1771,9 +1860,9 @@ class DictComp(expr):
 
     def _transform(self, node_transformer, context):
         return DictComp(
-            key=node_transformer(self.key),
-            value=node_transformer(self.value),
-            generators=[node_transformer(x) for x in self.generators],
+            key=node_transformer(self.key, context),
+            value=node_transformer(self.value, context),
+            generators=[node_transformer(x, context) for x in self.generators],
         )
 
     def _nodes_iter(self):
@@ -1794,8 +1883,8 @@ class GeneratorExp(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1813,8 +1902,8 @@ class GeneratorExp(expr):
 
     def _transform(self, node_transformer, context):
         return GeneratorExp(
-            elt=node_transformer(self.elt),
-            generators=[node_transformer(x) for x in self.generators],
+            elt=node_transformer(self.elt, context),
+            generators=[node_transformer(x, context) for x in self.generators],
         )
 
     def _nodes_iter(self):
@@ -1839,7 +1928,7 @@ class Await(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return Await(value=node_transformer(self.value))
+        return Await(value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -1850,8 +1939,8 @@ class Await(expr):
 class Yield(expr):
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -1862,7 +1951,9 @@ class Yield(expr):
         return cls(value=None if node.value is None else from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return Yield(value=None if self.value is None else node_transformer(self.value))
+        return Yield(
+            value=None if self.value is None else node_transformer(self.value, context)
+        )
 
     def _nodes_iter(self):
         yield self
@@ -1884,7 +1975,7 @@ class YieldFrom(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return YieldFrom(value=node_transformer(self.value))
+        return YieldFrom(value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -1900,15 +1991,15 @@ class Compare(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     ops: Sequence[cmpop] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: cmpop)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1928,9 +2019,9 @@ class Compare(expr):
 
     def _transform(self, node_transformer, context):
         return Compare(
-            left=node_transformer(self.left),
-            comparators=[node_transformer(x) for x in self.comparators],
-            ops=[node_transformer(x) for x in self.ops],
+            left=node_transformer(self.left, context),
+            comparators=[node_transformer(x, context) for x in self.comparators],
+            ops=[node_transformer(x, context) for x in self.ops],
         )
 
     def _nodes_iter(self):
@@ -1953,15 +2044,15 @@ class Call(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -1981,9 +2072,9 @@ class Call(expr):
 
     def _transform(self, node_transformer, context):
         return Call(
-            func=node_transformer(self.func),
-            args=[node_transformer(x) for x in self.args],
-            keywords=[node_transformer(x) for x in self.keywords],
+            func=node_transformer(self.func, context),
+            args=[node_transformer(x, context) for x in self.args],
+            keywords=[node_transformer(x, context) for x in self.keywords],
         )
 
     def _nodes_iter(self):
@@ -2008,8 +2099,8 @@ class FormattedValue(expr):
     )
     format_spec: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -2033,11 +2124,11 @@ class FormattedValue(expr):
 
     def _transform(self, node_transformer, context):
         return FormattedValue(
-            value=node_transformer(self.value),
+            value=node_transformer(self.value, context),
             conversion=self.conversion,
             format_spec=None
             if self.format_spec is None
-            else node_transformer(self.format_spec),
+            else node_transformer(self.format_spec, context),
         )
 
     def _nodes_iter(self):
@@ -2053,8 +2144,8 @@ class JoinedStr(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -2065,7 +2156,7 @@ class JoinedStr(expr):
         return cls(values=[from_builtin(x) for x in node.values])
 
     def _transform(self, node_transformer, context):
-        return JoinedStr(values=[node_transformer(x) for x in self.values])
+        return JoinedStr(values=[node_transformer(x, context) for x in self.values])
 
     def _nodes_iter(self):
         yield self
@@ -2111,7 +2202,7 @@ class Attribute(expr):
         return cls(attr=node.attr, value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return Attribute(attr=self.attr, value=node_transformer(self.value))
+        return Attribute(attr=self.attr, value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -2136,7 +2227,8 @@ class Subscript(expr):
 
     def _transform(self, node_transformer, context):
         return Subscript(
-            slice=node_transformer(self.slice), value=node_transformer(self.value)
+            slice=node_transformer(self.slice, context),
+            value=node_transformer(self.value, context),
         )
 
     def _nodes_iter(self):
@@ -2159,7 +2251,7 @@ class Starred(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return Starred(value=node_transformer(self.value))
+        return Starred(value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -2190,8 +2282,8 @@ class List(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -2202,7 +2294,7 @@ class List(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        return List(elts=[node_transformer(x) for x in self.elts])
+        return List(elts=[node_transformer(x, context) for x in self.elts])
 
     def _nodes_iter(self):
         yield self
@@ -2217,8 +2309,8 @@ class Tuple(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -2229,7 +2321,7 @@ class Tuple(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        return Tuple(elts=[node_transformer(x) for x in self.elts])
+        return Tuple(elts=[node_transformer(x, context) for x in self.elts])
 
     def _nodes_iter(self):
         yield self
@@ -2242,18 +2334,18 @@ class Tuple(expr):
 class Slice(expr):
     lower: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     step: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     upper: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -2273,9 +2365,9 @@ class Slice(expr):
 
     def _transform(self, node_transformer, context):
         return Slice(
-            lower=None if self.lower is None else node_transformer(self.lower),
-            step=None if self.step is None else node_transformer(self.step),
-            upper=None if self.upper is None else node_transformer(self.upper),
+            lower=None if self.lower is None else node_transformer(self.lower, context),
+            step=None if self.step is None else node_transformer(self.step, context),
+            upper=None if self.upper is None else node_transformer(self.upper, context),
         )
 
     def _nodes_iter(self):
@@ -2833,8 +2925,8 @@ class comprehension(Node):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -2857,9 +2949,9 @@ class comprehension(Node):
     def _transform(self, node_transformer, context):
         return comprehension(
             is_async=self.is_async,
-            iter=node_transformer(self.iter),
-            target=node_transformer(self.target),
-            ifs=[node_transformer(x) for x in self.ifs],
+            iter=node_transformer(self.iter, context),
+            target=node_transformer(self.target, context),
+            ifs=[node_transformer(x, context) for x in self.ifs],
         )
 
     def _nodes_iter(self):
@@ -2881,14 +2973,16 @@ class ExceptHandler(excepthandler):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
-    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    name: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
     type: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -2908,9 +3002,9 @@ class ExceptHandler(excepthandler):
 
     def _transform(self, node_transformer, context):
         return ExceptHandler(
-            body=[node_transformer(x) for x in self.body],
+            body=[node_transformer(x, context) for x in self.body],
             name=self.name,
-            type=None if self.type is None else node_transformer(self.type),
+            type=None if self.type is None else node_transformer(self.type, context),
         )
 
     def _nodes_iter(self):
@@ -2926,42 +3020,42 @@ class ExceptHandler(excepthandler):
 class arguments(Node):
     args: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     kw_defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     kwarg: Optional[arg] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     kwonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     posonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     vararg: Optional[arg] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -2989,13 +3083,15 @@ class arguments(Node):
 
     def _transform(self, node_transformer, context):
         return arguments(
-            args=[node_transformer(x) for x in self.args],
-            defaults=[node_transformer(x) for x in self.defaults],
-            kw_defaults=[node_transformer(x) for x in self.kw_defaults],
-            kwarg=None if self.kwarg is None else node_transformer(self.kwarg),
-            kwonlyargs=[node_transformer(x) for x in self.kwonlyargs],
-            posonlyargs=[node_transformer(x) for x in self.posonlyargs],
-            vararg=None if self.vararg is None else node_transformer(self.vararg),
+            args=[node_transformer(x, context) for x in self.args],
+            defaults=[node_transformer(x, context) for x in self.defaults],
+            kw_defaults=[node_transformer(x, context) for x in self.kw_defaults],
+            kwarg=None if self.kwarg is None else node_transformer(self.kwarg, context),
+            kwonlyargs=[node_transformer(x, context) for x in self.kwonlyargs],
+            posonlyargs=[node_transformer(x, context) for x in self.posonlyargs],
+            vararg=None
+            if self.vararg is None
+            else node_transformer(self.vararg, context),
         )
 
     def _nodes_iter(self):
@@ -3026,8 +3122,8 @@ class arg(Node):
     arg: str = attrs.field(converter=convert_identifier)
     annotation: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -3057,7 +3153,7 @@ class arg(Node):
             arg=self.arg,
             annotation=None
             if self.annotation is None
-            else node_transformer(self.annotation),
+            else node_transformer(self.annotation, context),
             type_comment=self.type_comment,
         )
 
@@ -3072,7 +3168,9 @@ class keyword(Node):
     value: expr = attrs.field(
         validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    arg: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    arg: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
 
     def _to_builtin(self):
         return ast.keyword(value=to_builtin(self.value), arg=self.arg)
@@ -3082,7 +3180,7 @@ class keyword(Node):
         return cls(value=from_builtin(node.value), arg=node.arg)
 
     def _transform(self, node_transformer, context):
-        return keyword(value=node_transformer(self.value), arg=self.arg)
+        return keyword(value=node_transformer(self.value, context), arg=self.arg)
 
     def _nodes_iter(self):
         yield self
@@ -3092,7 +3190,9 @@ class keyword(Node):
 @attrs.define()
 class alias(Node):
     name: str = attrs.field(converter=convert_identifier)
-    asname: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    asname: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
 
     def _to_builtin(self):
         return ast.alias(name=self.name, asname=self.asname)
@@ -3115,8 +3215,8 @@ class withitem(Node):
     )
     optional_vars: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -3138,10 +3238,10 @@ class withitem(Node):
 
     def _transform(self, node_transformer, context):
         return withitem(
-            context_expr=node_transformer(self.context_expr),
+            context_expr=node_transformer(self.context_expr, context),
             optional_vars=None
             if self.optional_vars is None
-            else node_transformer(self.optional_vars),
+            else node_transformer(self.optional_vars, context),
         )
 
     def _nodes_iter(self):
@@ -3160,13 +3260,13 @@ class match_case(Node):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     guard: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -3186,9 +3286,9 @@ class match_case(Node):
 
     def _transform(self, node_transformer, context):
         return match_case(
-            pattern=node_transformer(self.pattern),
-            body=[node_transformer(x) for x in self.body],
-            guard=None if self.guard is None else node_transformer(self.guard),
+            pattern=node_transformer(self.pattern, context),
+            body=[node_transformer(x, context) for x in self.body],
+            guard=None if self.guard is None else node_transformer(self.guard, context),
         )
 
     def _nodes_iter(self):
@@ -3219,7 +3319,7 @@ class MatchValue(pattern):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        return MatchValue(value=node_transformer(self.value))
+        return MatchValue(value=node_transformer(self.value, context))
 
     def _nodes_iter(self):
         yield self
@@ -3250,8 +3350,8 @@ class MatchSequence(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -3262,7 +3362,9 @@ class MatchSequence(pattern):
         return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
-        return MatchSequence(patterns=[node_transformer(x) for x in self.patterns])
+        return MatchSequence(
+            patterns=[node_transformer(x, context) for x in self.patterns]
+        )
 
     def _nodes_iter(self):
         yield self
@@ -3277,17 +3379,19 @@ class MatchMapping(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
-    rest: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    rest: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
 
     def _to_builtin(self):
         return ast.MatchMapping(
@@ -3306,8 +3410,8 @@ class MatchMapping(pattern):
 
     def _transform(self, node_transformer, context):
         return MatchMapping(
-            keys=[node_transformer(x) for x in self.keys],
-            patterns=[node_transformer(x) for x in self.patterns],
+            keys=[node_transformer(x, context) for x in self.keys],
+            patterns=[node_transformer(x, context) for x in self.patterns],
             rest=self.rest,
         )
 
@@ -3327,21 +3431,21 @@ class MatchClass(pattern):
         validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
     kwd_attrs: Sequence[str] = attrs.field(
-        factory=list, converter=DeepIterableConverter(convert_identifier)
+        converter=DeepIterableConverter(convert_identifier), factory=list
     )
     kwd_patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
     patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -3363,10 +3467,10 @@ class MatchClass(pattern):
 
     def _transform(self, node_transformer, context):
         return MatchClass(
-            cls=node_transformer(self.cls),
+            cls=node_transformer(self.cls, context),
             kwd_attrs=self.kwd_attrs,
-            kwd_patterns=[node_transformer(x) for x in self.kwd_patterns],
-            patterns=[node_transformer(x) for x in self.patterns],
+            kwd_patterns=[node_transformer(x, context) for x in self.kwd_patterns],
+            patterns=[node_transformer(x, context) for x in self.patterns],
         )
 
     def _nodes_iter(self):
@@ -3382,7 +3486,9 @@ class MatchClass(pattern):
 
 @attrs.define()
 class MatchStar(pattern):
-    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    name: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
 
     def _to_builtin(self):
         return ast.MatchStar(name=self.name)
@@ -3400,11 +3506,13 @@ class MatchStar(pattern):
 
 @attrs.define()
 class MatchAs(pattern):
-    name: Optional[str] = attrs.field(default=None, converter=convert_identifier)
+    name: Optional[str] = attrs.field(
+        converter=attrs.converters.optional(convert_identifier), default=None
+    )
     pattern: Optional[pattern] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: pattern)),
+        converter=attrs.converters.optional(unwrap_underscore),
         default=None,
-        converter=unwrap_underscore,
     )
 
     def _to_builtin(self):
@@ -3423,7 +3531,9 @@ class MatchAs(pattern):
     def _transform(self, node_transformer, context):
         return MatchAs(
             name=self.name,
-            pattern=None if self.pattern is None else node_transformer(self.pattern),
+            pattern=None
+            if self.pattern is None
+            else node_transformer(self.pattern, context),
         )
 
     def _nodes_iter(self):
@@ -3438,8 +3548,8 @@ class MatchOr(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        factory=list,
         converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
     )
 
     def _to_builtin(self):
@@ -3450,7 +3560,7 @@ class MatchOr(pattern):
         return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
-        return MatchOr(patterns=[node_transformer(x) for x in self.patterns])
+        return MatchOr(patterns=[node_transformer(x, context) for x in self.patterns])
 
     def _nodes_iter(self):
         yield self
