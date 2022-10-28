@@ -79,6 +79,86 @@ class BoundUnderscore(object):
             BinOp(left=self.__inner__, op=Add(), right=other.__inner__)
         )
 
+    def __and__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=And(), right=other.__inner__)
+        )
+
+    def __floordiv__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=FloorDiv(), right=other.__inner__)
+        )
+
+    def __mod__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Mod(), right=other.__inner__)
+        )
+
+    def __lshift__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=LShift(), right=other.__inner__)
+        )
+
+    def __rshift__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=RShift(), right=other.__inner__)
+        )
+
+    def __matmul__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=MatMult(), right=other.__inner__)
+        )
+
+    def __sub__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Sub(), right=other.__inner__)
+        )
+
+    def __pow__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Mod(), right=other.__inner__)
+        )
+
+    def __div__(self, other):
+        return BoundUnderscore(
+            BinOp(left=self.__inner__, op=Div(), right=other.__inner__)
+        )
+
+    def __lt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Lt()])
+        )
+
+    def __gt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Gt()])
+        )
+
+    def __le__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Le()])
+        )
+
+    def __ge__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Ge()])
+        )
+
+    def __lt__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Lt()])
+        )
+
+    def __eq__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[Eq()])
+        )
+
+    def __ne__(self, other):
+        return BoundUnderscore(
+            Compare(left=self.__inner__, comparators=[other.__inner__], ops=[NotEq()])
+        )
+
     def __getitem__(self, key):
         if isinstance(key, slice):
             key = slice(lower=key.start, upper=key.stop, step=key.step)

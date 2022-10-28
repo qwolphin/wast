@@ -1,8 +1,10 @@
 import ast
-import dev.wast as wast
-from pathlib import Path
 
-text = Path("stable/wast.py").read_text()
-v = wast.node_to_wast(ast.parse(text))
+from activated_wast import w, _
 
-print(wast.unparse(v))
+builder_test = [
+    (_.a + _.b, 'a + b'),
+]
+
+for tree, text in builder_test:
+    assert w.unparse(tree._) == text

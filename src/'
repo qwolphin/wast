@@ -96,7 +96,7 @@ class Field:
         match self.type:
             case "identifier":
                 annotation = _.str._
-                converters += [_.convert_identifier]
+                converters += [_.convert_identifier._]
             case "string":
                 annotation = _.str._
                 validators += [mk_io_validator(annotation)]
@@ -119,7 +119,7 @@ class Field:
                 validator = first
 
         if converters:
-            first, *rest = converters
+            first, *rest = validators
 
             if rest:
                 converter = _.attrs.converter.pipe(*converters)
@@ -132,7 +132,7 @@ class Field:
 
             if validators:
                 field_args |= dict(
-                    validator=_.attrs.validators.optional(validator)
+                    validator=_.attrs.validators.optional(validators)
                 )
 
             if converters:
@@ -153,7 +153,9 @@ class Field:
             field_args |= dict(factory=_.list)
         else:
             if validators:
-                field_args |= dict(validator=validator)
+                field_args |= dict(
+                    validator=_.attrs.validators.deep_iterable(validator)._
+                )
 
             if converters:
                 field_args |= dict(converter=converter)
@@ -192,7 +194,7 @@ class FieldsMixin(ClassSuffixMixin):
     @property
     def to_builtin(self):
         kwargs = {
-            x.name: x.mk_transformer(_.self._(x.name), lambda x: _.to_builtin(x))
+            x.name: x.mk_from_to_builtin(_.self._(x.name)._, _.to_builtin._)
             for x in self.parsed_fields
         }
         ret = _.ast._(self.name)(**kwargs)._
@@ -225,7 +227,7 @@ class FieldsMixin(ClassSuffixMixin):
     @property
     def transform(self):
         kwargs = {
-            x.name: x.mk_transformer(_.self._(x.name)._, lambda x: _.node_transformer(x, _.context))
+            x.name: x.mk_from_to_builtin(_.self._(x.name)._, _.node_transformer._)
             for x in self.parsed_fields
         }
         ret = _(self.name)(**kwargs)._
