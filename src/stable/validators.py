@@ -50,11 +50,13 @@ class DeepIterableConverter(object):
             converter=self.member_converter()
         )
 
+
 def unwrap_underscore(value):
-    if value.__class__.__name__ == 'BoundUnderscore':
+    if value.__class__.__name__ == "BoundUnderscore":
         return value.__inner__
 
     return value
+
 
 def convert_identifier(value: Union[str | wast.Name]) -> str:
     match value:

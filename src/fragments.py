@@ -1,12 +1,11 @@
-import warnings
-
 from pathlib import Path
 from activated_wast import w
+from itertools import chain
 
 
-def generate_name(entry):
-    # ./fragments/prefixes/meow.py -> prefixes/meow
-    return str(entry.relative_to(fragments_dir).with_suffix(""))
+def generate_key(entry):
+    # ./fragments/prefixes/meow.py -> ('prefixes', 'meow')
+    return entry.relative_to(fragments_dir).with_suffix("").parts
 
 
 def load_fragment(entry):
@@ -30,28 +29,27 @@ def load_fragment(entry):
 
 fragments_dir = Path("./fragments")
 
+fragments = {
+    generate_key(x): load_fragment(x)
+    for x in fragments_dir.glob("**/*.py")
+    if x.is_file()
+}
 
-class LoggingDict(dict):
-    def __init__(self, *args, **kwargs):
-        self.accessed_keys = set()
-        super().__init__(*args, **kwargs)
-
-    def __getitem__(self, key):
-        self.accessed_keys.add(key)
-        return super().__getitem__(key)
+used_fragments = set()
 
 
-FRAGMENTS = LoggingDict(
-    {
-        generate_name(x): load_fragment(x)
-        for x in fragments_dir.glob("**/*.py")
-        if x.is_file()
-    }
-)
+def get_fragment(*args, default=...):
+    key = tuple(chain.from_iterable(x.split("/") for x in args))
+    used_fragments.add(key)
+
+    if default is ...:
+        return fragments[key]
+
+    return fragments.get(key, default)
 
 
 def report_unused_fragments():
-    unused = set(FRAGMENTS.keys()) - FRAGMENTS.accessed_keys
+    unused = set(fragments.keys()) - used_fragments
 
     if unused:
-        warnings.warn(f"The following fragments appear to be unused: {unused}")
+        print(f"The following fragments look unused: {unused}")

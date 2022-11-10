@@ -1,8 +1,10 @@
 import asdl
 import attrs
+import bound_underscore
 from activated_wast import w, _
 from itertools import chain
-from fragments import FRAGMENTS, report_unused_fragments
+from pathlib import Path
+from fragments import get_fragment, report_unused_fragments
 
 
 def mk_io_validator(val):
@@ -69,7 +71,7 @@ class Field:
             return []
 
         val = _.self._(self.name)._
-        iter = val()._nodes_iter()._
+        iter = val()._children()._
         if self.opt:
             ret = w.If(
                 test=w.Compare(left=val, comparators=[const(None)], ops=[w.IsNot()]),
@@ -78,7 +80,7 @@ class Field:
         elif self.seq:
             inner = w.If(
                 test=w.Compare(left=_.x._, comparators=[const(None)], ops=[w.IsNot()]),
-                body=[w.Expr(w.YieldFrom(value=_.x._nodes_iter()._))],
+                body=[w.Expr(w.YieldFrom(value=_.x._children()._))],
             )
             ret = w.For(iter=val, target=_.x._, body=[inner])
 
@@ -106,9 +108,10 @@ class Field:
             case "constant":
                 annotation = _.Any._
             case _:
-                annotation = _(self.type)._
+                type_tuple = w.Tuple((_(self.type), _.TemplateVariable))
+                annotation = _.Union[type_tuple]
                 converters += [_.unwrap_underscore]
-                validators += [mk_io_validator(annotation)]
+                validators += [mk_io_validator(type_tuple)]
 
         if validators:
             first, *rest = validators
@@ -131,9 +134,7 @@ class Field:
             annotation = _.Optional[annotation]
 
             if validators:
-                field_args |= dict(
-                    validator=_.attrs.validators.optional(validator)
-                )
+                field_args |= dict(validator=_.attrs.validators.optional(validator))
 
             if converters:
                 field_args |= dict(converter=_.attrs.converters.optional(converter))
@@ -158,7 +159,6 @@ class Field:
             if converters:
                 field_args |= dict(converter=converter)
 
-
         if self.name in ("type_comment", "type_ignores"):
             field_args |= dict(repr=w.Constant(False))
 
@@ -174,11 +174,7 @@ class Field:
 class ClassSuffixMixin:
     @property
     def class_suffix(self):
-        key = f"class_suffix/{self.name}"
-        try:
-            return FRAGMENTS[key]
-        except KeyError:
-            return []
+        return get_fragment("class_suffix", self.name, default=[])
 
 
 class FieldsMixin(ClassSuffixMixin):
@@ -224,11 +220,21 @@ class FieldsMixin(ClassSuffixMixin):
 
     @property
     def transform(self):
+        inner_context = w.Assign(
+            targets=[_.inner_context],
+            value=_.TransformerContext(
+                parents=w.List([_.self, w.Starred(_.context.parents)])
+            ),
+        )
         kwargs = {
-            x.name: x.mk_transformer(_.self._(x.name)._, lambda x: _.node_transformer(x, _.context))
+            x.name: x.mk_transformer(
+                _.self._(x.name),
+                lambda x: x._transform(_.node_transformer, _.inner_context),
+            )
             for x in self.parsed_fields
         }
-        ret = _(self.name)(**kwargs)._
+        transformed = w.Assign(targets=[_.transformed], value=_(self.name)(**kwargs))
+        ret = _.node_transformer(_.transformed, _.context)
 
         return w.FunctionDef(
             name="_transform",
@@ -238,8 +244,9 @@ class FieldsMixin(ClassSuffixMixin):
                     w.arg(arg="node_transformer"),
                     w.arg(arg="context"),
                 ],
+                defaults=[_.TransformerContext()],
             ),
-            body=[w.Return(ret)],
+            body=[inner_context, transformed, w.Return(ret)],
         )
 
     @property
@@ -249,7 +256,7 @@ class FieldsMixin(ClassSuffixMixin):
             *chain.from_iterable(x.nodes_iter_entry for x in self.parsed_fields),
         ]
         return w.FunctionDef(
-            name="_nodes_iter",
+            name="_children",
             args=w.arguments(
                 args=[
                     w.arg(arg="self"),
@@ -355,19 +362,22 @@ class TopLevel:
     @property
     def rendered(self):
         registry = w.Assign(
-            value=_.dict(**{x.name: _(x.name)._ for x in self.nodes})._,
-            targets=[_.NODES._],
+            value=_.dict(**{x.name: _(x.name) for x in self.nodes}),
+            targets=[_.NODES],
         )
         return w.Module(
-            [*chain.from_iterable(x.rendered for x in self.dfns_parsed), registry]
+            [
+                *get_fragment("header"),
+                bound_underscore.rendered,
+                *chain.from_iterable(x.rendered for x in self.dfns_parsed),
+                registry,
+                get_fragment("template_variable"),
+            ]
         )
 
 
 dfns = asdl.parse("Python.asdl").dfns
-top_level = TopLevel(dfns=dfns)
-header = "".join(open("header.py", "r"))
-rendered = top_level.rendered
+rendered = TopLevel(dfns=dfns).rendered
+code = w.unparse(rendered)
 
-print(header + w.unparse(rendered))
-
-report_unused_fragments()
+Path("dev/wast.py").write_text(code)
