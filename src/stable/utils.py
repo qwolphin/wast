@@ -4,8 +4,8 @@ from inspect import signature
 from typing import Callable, Optional, Sequence, Type, Union
 
 import attrs
-from .common import Node, WrappedNode
 
+from .common import Node, WrappedNode, TransformerContext
 from .wast import from_builtin, to_builtin
 
 
@@ -18,23 +18,6 @@ def unparse(node: Node) -> str:
 def parse(text: str) -> Node:
     tree = ast.parse(text)
     return from_builtin(tree)
-
-
-def unparse(node: Node) -> str:
-    tree = to_builtin(node)
-    tree = ast.fix_missing_locations(tree)
-    return ast.unparse(tree)
-
-
-def parse(text: str) -> Node:
-    tree = ast.parse(text)
-    return from_builtin(tree)
-
-
-@attrs.define
-class TransformerContext:
-    parents: Sequence[Node]
-    original: Node
 
 
 def transform(node: Node, fn) -> Node:

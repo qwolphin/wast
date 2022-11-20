@@ -1,4 +1,4 @@
-FROM python:3.11-rc-bullseye
+FROM python:3.11
 
 # create sudo user mimicking host user
 RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*

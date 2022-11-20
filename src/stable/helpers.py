@@ -1,9 +1,10 @@
+# raw
 from abc import ABC
 from itertools import cycle
 from typing import Literal
 
 import attrs
-from .common import Node, WrappedNode
+
 from . import wast as n
 
 
@@ -15,6 +16,7 @@ class FreeUnderscore:
         ret = n.Name(id=name)
         for name in reversed(attrs):
             ret = n.Attribute(value=ret, attr=name)
+
         return BoundUnderscore(ret)
 
     def __getitem__(self, key):
@@ -25,6 +27,8 @@ class FreeUnderscore:
 
 
 _ = FreeUnderscore()
+
+
 _comparasion_ops = {
     "<": n.Lt(),
     "<=": n.LtE(),
@@ -37,26 +41,31 @@ _comparasion_ops = {
     "in": n.In(),
     "not in": n.NotIn(),
 }
+
 OperatorString = Literal[
     "<", "<=", ">", ">=", "==", "!=", "is", "is not", "in", "not in"
 ]
 
 
-def compare(*args: OperatorString | n.expr) -> n.Compare:
+def mk_compare(*args: OperatorString | n.expr) -> n.Compare:
     exprs = []
     operators = []
     try:
         for type_, entry in zip(cycle([n.expr, str]), args):
             if not isinstance(entry, type_):
                 raise ValueError()
+
             if type_ is n.expr:
                 exprs.append(entry)
             else:
                 operators.append(_comparasion_ops[entry])
+
     except ValueError:
         raise Exception("Mailformed")
+
     assert len(exprs) >= 2
     assert len(exprs) == len(operators) + 1
+
     return n.Compare(left=exprs[0], ops=operators, comparators=exprs[1:])
 
 
@@ -108,54 +117,63 @@ def convert_arguments(value: n.arguments | list[AbstractArg | str]):
             return value
         case list() | tuple():
             args_list = [Arg(x) if isinstance(x, str) else x for x in value]
-            assert all((isinstance(x, AbstractArg) for x in args_list))
+            assert all(isinstance(x, AbstractArg) for x in args_list)
         case other:
             assert False
+
     previous = []
     ret = n.arguments()
+
     for a in args_list:
         match a:
             case PosOnlyArg():
-                assert all((isinstance(x, PosOnlyArg) for x in previous))
+                assert all(isinstance(x, PosOnlyArg) for x in previous)
                 new = dict(posonlyargs=[*ret.posonlyargs, a._as_narg()])
+
                 if a.default is UNSET:
                     assert not ret.defaults
                 else:
                     new |= dict(defaults=[*ret.defaults, a.default])
+
             case Arg():
-                assert all((isinstance(x, (PosOnlyArg, Arg)) for x in previous))
+                assert all(isinstance(x, (PosOnlyArg, Arg)) for x in previous)
                 new = dict(args=[*ret.args, a._as_narg()])
+
                 if a.default is UNSET:
                     assert not ret.defaults
                 else:
                     new |= dict(defaults=[*ret.defaults, a.default])
+
             case Args():
-                assert all((isinstance(x, (PosOnlyArg, Arg)) for x in previous))
+                assert all(isinstance(x, (PosOnlyArg, Arg)) for x in previous)
                 new = dict(vararg=a._as_narg())
+
             case KwOnlyArg():
-                assert all((isinstance(x, (PosOnlyArg, Arg, Args)) for x in previous))
+                assert all(isinstance(x, (PosOnlyArg, Arg, Args)) for x in previous)
                 new = dict(args=[*ret.args, a._as_narg()])
+
                 if a.default is UNSET:
-                    assert all((x is None for x in ret.kw_defaults))
+                    assert all(x is None for x in ret.kw_defaults)
                     new |= dict(defaults=[*ret.kw_defaults, None])
                 else:
                     new |= dict(defaults=[*ret.kw_defaults, a.default])
+
             case KwArgs():
                 assert all(
-                    (
-                        isinstance(x, (PosOnlyArg, Arg, Args, KwOnlyArg))
-                        for x in previous
-                    )
+                    isinstance(x, (PosOnlyArg, Arg, Args, KwOnlyArg)) for x in previous
                 )
                 new = dict(kwarg=a._as_narg())
+
             case other:
                 assert False
+
         previous.append(a)
         ret = attrs.evolve(ret, **new)
+
     return ret
 
 
-class BoundUnderscore(WrappedNode):
+class BoundUnderscore(object):
     def __repr__(self):
         return f"W({self.__inner__})"
 
@@ -179,10 +197,11 @@ class BoundUnderscore(WrappedNode):
         match key:
             case slice():
                 _slice = slice(lower=key.start, upper=key.stop, step=key.step)
-            case WrappedNode() | Node():
+            case BoundUnderscore() | Node():
                 _slice = key
             case any:
                 raise TypeError()
+
         return BoundUnderscore(n.Subscript(slice=_slice, value=self.__inner__))
 
     def __bool__(self):
@@ -192,6 +211,7 @@ class BoundUnderscore(WrappedNode):
         ret = self.__inner__
         for name in reversed(attrs):
             ret = n.Attribute(value=ret, attr=name)
+
         return BoundUnderscore(ret)
 
     def __add__(self, other):

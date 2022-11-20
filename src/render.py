@@ -3,10 +3,9 @@ from pathlib import Path
 
 import attrs
 
-import asdl
+from upstream import asdl, dfns
 import operator_overloads
-from activated_wast import _, n, wast
-from fragments import get_fragment, report_unused_fragments
+from activated_wast import _, n, unparse, get_fragment
 
 
 def mk_io_validator(val):
@@ -367,9 +366,8 @@ class TopLevel:
         )
 
 
-dfns = asdl.parse("Python.asdl").dfns
 nodes_tree = TopLevel(dfns=dfns).rendered
-nodes_text = wast.unparse(nodes_tree)
+nodes_text = unparse(nodes_tree)
 
 """
 from helpers import transformer
@@ -379,4 +377,4 @@ def asdf(e, c):
     return operator_overloads.methods
 """
 
-Path("dev/wast.py").write_text(nodes_text)
+Path("dev/nodes.py").write_text(nodes_text)

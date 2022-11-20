@@ -1,21 +1,14 @@
 from __future__ import annotations
-
 import ast
 from typing import Callable, Optional, Sequence, Union
-
 import attrs
-
-from .common import Node, WrappedNode
+from .common import Node, WrappedNode, TransformerContext
 from .validators import (
     DeepIterableConverter,
     ProxyInstanceOfValidator,
     convert_identifier,
     unwrap_underscore,
 )
-
-
-class mod(Node):
-    pass
 
 
 def to_builtin(node: Node) -> ast.AST:
@@ -26,7 +19,6 @@ def to_builtin(node: Node) -> ast.AST:
             pass
         case other:
             raise TypeError("Wrong type")
-
     return node._to_builtin()
 
 
@@ -36,9 +28,12 @@ def from_builtin(node: ast.AST) -> Node:
     return NODES[t]._from_builtin(node)
 
 
-class utils:
-    from_builtin = from_builtin
-    to_builtin = to_builtin
+class Node:
+    pass
+
+
+class mod(Node):
+    pass
 
 
 @attrs.frozen()
@@ -61,15 +56,15 @@ class Module(mod):
 
     def _to_builtin(self):
         return ast.Module(
-            body=[utils.to_builtin(x) for x in self.body],
-            type_ignores=[utils.to_builtin(x) for x in self.type_ignores],
+            body=[to_builtin(x) for x in self.body],
+            type_ignores=[to_builtin(x) for x in self.type_ignores],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[utils.from_builtin(x) for x in node.body],
-            type_ignores=[utils.from_builtin(x) for x in node.type_ignores],
+            body=[from_builtin(x) for x in node.body],
+            type_ignores=[from_builtin(x) for x in node.type_ignores],
         )
 
     def _transform(self, node_transformer, context):
@@ -103,11 +98,11 @@ class Interactive(mod):
     )
 
     def _to_builtin(self):
-        return ast.Interactive(body=[utils.to_builtin(x) for x in self.body])
+        return ast.Interactive(body=[to_builtin(x) for x in self.body])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(body=[utils.from_builtin(x) for x in node.body])
+        return cls(body=[from_builtin(x) for x in node.body])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -130,11 +125,11 @@ class Expression(mod):
     )
 
     def _to_builtin(self):
-        return ast.Expression(body=utils.to_builtin(self.body))
+        return ast.Expression(body=to_builtin(self.body))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(body=utils.from_builtin(node.body))
+        return cls(body=from_builtin(node.body))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -163,15 +158,15 @@ class FunctionType(mod):
 
     def _to_builtin(self):
         return ast.FunctionType(
-            returns=utils.to_builtin(self.returns),
-            argtypes=[utils.to_builtin(x) for x in self.argtypes],
+            returns=to_builtin(self.returns),
+            argtypes=[to_builtin(x) for x in self.argtypes],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            returns=utils.from_builtin(node.returns),
-            argtypes=[utils.from_builtin(x) for x in node.argtypes],
+            returns=from_builtin(node.returns),
+            argtypes=[from_builtin(x) for x in node.argtypes],
         )
 
     def _transform(self, node_transformer, context):
@@ -230,22 +225,22 @@ class FunctionDef(stmt):
 
     def _to_builtin(self):
         return ast.FunctionDef(
-            args=utils.to_builtin(self.args),
+            args=to_builtin(self.args),
             name=self.name,
-            body=[utils.to_builtin(x) for x in self.body],
-            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
-            returns=None if self.returns is None else utils.to_builtin(self.returns),
+            body=[to_builtin(x) for x in self.body],
+            decorator_list=[to_builtin(x) for x in self.decorator_list],
+            returns=None if self.returns is None else to_builtin(self.returns),
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=utils.from_builtin(node.args),
+            args=from_builtin(node.args),
             name=node.name,
-            body=[utils.from_builtin(x) for x in node.body],
-            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
-            returns=None if node.returns is None else utils.from_builtin(node.returns),
+            body=[from_builtin(x) for x in node.body],
+            decorator_list=[from_builtin(x) for x in node.decorator_list],
+            returns=None if node.returns is None else from_builtin(node.returns),
             type_comment=node.type_comment,
         )
 
@@ -313,22 +308,22 @@ class AsyncFunctionDef(stmt):
 
     def _to_builtin(self):
         return ast.AsyncFunctionDef(
-            args=utils.to_builtin(self.args),
+            args=to_builtin(self.args),
             name=self.name,
-            body=[utils.to_builtin(x) for x in self.body],
-            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
-            returns=None if self.returns is None else utils.to_builtin(self.returns),
+            body=[to_builtin(x) for x in self.body],
+            decorator_list=[to_builtin(x) for x in self.decorator_list],
+            returns=None if self.returns is None else to_builtin(self.returns),
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=utils.from_builtin(node.args),
+            args=from_builtin(node.args),
             name=node.name,
-            body=[utils.from_builtin(x) for x in node.body],
-            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
-            returns=None if node.returns is None else utils.from_builtin(node.returns),
+            body=[from_builtin(x) for x in node.body],
+            decorator_list=[from_builtin(x) for x in node.decorator_list],
+            returns=None if node.returns is None else from_builtin(node.returns),
             type_comment=node.type_comment,
         )
 
@@ -397,20 +392,20 @@ class ClassDef(stmt):
     def _to_builtin(self):
         return ast.ClassDef(
             name=self.name,
-            bases=[utils.to_builtin(x) for x in self.bases],
-            body=[utils.to_builtin(x) for x in self.body],
-            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
-            keywords=[utils.to_builtin(x) for x in self.keywords],
+            bases=[to_builtin(x) for x in self.bases],
+            body=[to_builtin(x) for x in self.body],
+            decorator_list=[to_builtin(x) for x in self.decorator_list],
+            keywords=[to_builtin(x) for x in self.keywords],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             name=node.name,
-            bases=[utils.from_builtin(x) for x in node.bases],
-            body=[utils.from_builtin(x) for x in node.body],
-            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
-            keywords=[utils.from_builtin(x) for x in node.keywords],
+            bases=[from_builtin(x) for x in node.bases],
+            body=[from_builtin(x) for x in node.body],
+            decorator_list=[from_builtin(x) for x in node.decorator_list],
+            keywords=[from_builtin(x) for x in node.keywords],
         )
 
     def _transform(self, node_transformer, context):
@@ -454,13 +449,11 @@ class Return(stmt):
     )
 
     def _to_builtin(self):
-        return ast.Return(
-            value=None if self.value is None else utils.to_builtin(self.value)
-        )
+        return ast.Return(value=None if self.value is None else to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=None if node.value is None else utils.from_builtin(node.value))
+        return cls(value=None if node.value is None else from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -488,11 +481,11 @@ class Delete(stmt):
     )
 
     def _to_builtin(self):
-        return ast.Delete(targets=[utils.to_builtin(x) for x in self.targets])
+        return ast.Delete(targets=[to_builtin(x) for x in self.targets])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(targets=[utils.from_builtin(x) for x in node.targets])
+        return cls(targets=[from_builtin(x) for x in node.targets])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -530,16 +523,16 @@ class Assign(stmt):
 
     def _to_builtin(self):
         return ast.Assign(
-            value=utils.to_builtin(self.value),
-            targets=[utils.to_builtin(x) for x in self.targets],
+            value=to_builtin(self.value),
+            targets=[to_builtin(x) for x in self.targets],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            value=utils.from_builtin(node.value),
-            targets=[utils.from_builtin(x) for x in node.targets],
+            value=from_builtin(node.value),
+            targets=[from_builtin(x) for x in node.targets],
             type_comment=node.type_comment,
         )
 
@@ -577,17 +570,17 @@ class AugAssign(stmt):
 
     def _to_builtin(self):
         return ast.AugAssign(
-            op=utils.to_builtin(self.op),
-            target=utils.to_builtin(self.target),
-            value=utils.to_builtin(self.value),
+            op=to_builtin(self.op),
+            target=to_builtin(self.target),
+            value=to_builtin(self.value),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            op=utils.from_builtin(node.op),
-            target=utils.from_builtin(node.target),
-            value=utils.from_builtin(node.value),
+            op=from_builtin(node.op),
+            target=from_builtin(node.target),
+            value=from_builtin(node.value),
         )
 
     def _transform(self, node_transformer, context):
@@ -623,19 +616,19 @@ class AnnAssign(stmt):
 
     def _to_builtin(self):
         return ast.AnnAssign(
-            annotation=utils.to_builtin(self.annotation),
+            annotation=to_builtin(self.annotation),
             simple=self.simple,
-            target=utils.to_builtin(self.target),
-            value=None if self.value is None else utils.to_builtin(self.value),
+            target=to_builtin(self.target),
+            value=None if self.value is None else to_builtin(self.value),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            annotation=utils.from_builtin(node.annotation),
+            annotation=from_builtin(node.annotation),
             simple=node.simple,
-            target=utils.from_builtin(node.target),
-            value=None if node.value is None else utils.from_builtin(node.value),
+            target=from_builtin(node.target),
+            value=None if node.value is None else from_builtin(node.value),
         )
 
     def _transform(self, node_transformer, context):
@@ -688,20 +681,20 @@ class For(stmt):
 
     def _to_builtin(self):
         return ast.For(
-            iter=utils.to_builtin(self.iter),
-            target=utils.to_builtin(self.target),
-            body=[utils.to_builtin(x) for x in self.body],
-            orelse=[utils.to_builtin(x) for x in self.orelse],
+            iter=to_builtin(self.iter),
+            target=to_builtin(self.target),
+            body=[to_builtin(x) for x in self.body],
+            orelse=[to_builtin(x) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            iter=utils.from_builtin(node.iter),
-            target=utils.from_builtin(node.target),
-            body=[utils.from_builtin(x) for x in node.body],
-            orelse=[utils.from_builtin(x) for x in node.orelse],
+            iter=from_builtin(node.iter),
+            target=from_builtin(node.target),
+            body=[from_builtin(x) for x in node.body],
+            orelse=[from_builtin(x) for x in node.orelse],
             type_comment=node.type_comment,
         )
 
@@ -758,20 +751,20 @@ class AsyncFor(stmt):
 
     def _to_builtin(self):
         return ast.AsyncFor(
-            iter=utils.to_builtin(self.iter),
-            target=utils.to_builtin(self.target),
-            body=[utils.to_builtin(x) for x in self.body],
-            orelse=[utils.to_builtin(x) for x in self.orelse],
+            iter=to_builtin(self.iter),
+            target=to_builtin(self.target),
+            body=[to_builtin(x) for x in self.body],
+            orelse=[to_builtin(x) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            iter=utils.from_builtin(node.iter),
-            target=utils.from_builtin(node.target),
-            body=[utils.from_builtin(x) for x in node.body],
-            orelse=[utils.from_builtin(x) for x in node.orelse],
+            iter=from_builtin(node.iter),
+            target=from_builtin(node.target),
+            body=[from_builtin(x) for x in node.body],
+            orelse=[from_builtin(x) for x in node.orelse],
             type_comment=node.type_comment,
         )
 
@@ -820,17 +813,17 @@ class While(stmt):
 
     def _to_builtin(self):
         return ast.While(
-            test=utils.to_builtin(self.test),
-            body=[utils.to_builtin(x) for x in self.body],
-            orelse=[utils.to_builtin(x) for x in self.orelse],
+            test=to_builtin(self.test),
+            body=[to_builtin(x) for x in self.body],
+            orelse=[to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=utils.from_builtin(node.test),
-            body=[utils.from_builtin(x) for x in node.body],
-            orelse=[utils.from_builtin(x) for x in node.orelse],
+            test=from_builtin(node.test),
+            body=[from_builtin(x) for x in node.body],
+            orelse=[from_builtin(x) for x in node.orelse],
         )
 
     def _transform(self, node_transformer, context):
@@ -875,17 +868,17 @@ class If(stmt):
 
     def _to_builtin(self):
         return ast.If(
-            test=utils.to_builtin(self.test),
-            body=[utils.to_builtin(x) for x in self.body],
-            orelse=[utils.to_builtin(x) for x in self.orelse],
+            test=to_builtin(self.test),
+            body=[to_builtin(x) for x in self.body],
+            orelse=[to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=utils.from_builtin(node.test),
-            body=[utils.from_builtin(x) for x in node.body],
-            orelse=[utils.from_builtin(x) for x in node.orelse],
+            test=from_builtin(node.test),
+            body=[from_builtin(x) for x in node.body],
+            orelse=[from_builtin(x) for x in node.orelse],
         )
 
     def _transform(self, node_transformer, context):
@@ -932,16 +925,16 @@ class With(stmt):
 
     def _to_builtin(self):
         return ast.With(
-            body=[utils.to_builtin(x) for x in self.body],
-            items=[utils.to_builtin(x) for x in self.items],
+            body=[to_builtin(x) for x in self.body],
+            items=[to_builtin(x) for x in self.items],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[utils.from_builtin(x) for x in node.body],
-            items=[utils.from_builtin(x) for x in node.items],
+            body=[from_builtin(x) for x in node.body],
+            items=[from_builtin(x) for x in node.items],
             type_comment=node.type_comment,
         )
 
@@ -988,16 +981,16 @@ class AsyncWith(stmt):
 
     def _to_builtin(self):
         return ast.AsyncWith(
-            body=[utils.to_builtin(x) for x in self.body],
-            items=[utils.to_builtin(x) for x in self.items],
+            body=[to_builtin(x) for x in self.body],
+            items=[to_builtin(x) for x in self.items],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[utils.from_builtin(x) for x in node.body],
-            items=[utils.from_builtin(x) for x in node.items],
+            body=[from_builtin(x) for x in node.body],
+            items=[from_builtin(x) for x in node.items],
             type_comment=node.type_comment,
         )
 
@@ -1035,15 +1028,14 @@ class Match(stmt):
 
     def _to_builtin(self):
         return ast.Match(
-            subject=utils.to_builtin(self.subject),
-            cases=[utils.to_builtin(x) for x in self.cases],
+            subject=to_builtin(self.subject), cases=[to_builtin(x) for x in self.cases]
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            subject=utils.from_builtin(node.subject),
-            cases=[utils.from_builtin(x) for x in node.cases],
+            subject=from_builtin(node.subject),
+            cases=[from_builtin(x) for x in node.cases],
         )
 
     def _transform(self, node_transformer, context):
@@ -1077,15 +1069,15 @@ class Raise(stmt):
 
     def _to_builtin(self):
         return ast.Raise(
-            cause=None if self.cause is None else utils.to_builtin(self.cause),
-            exc=None if self.exc is None else utils.to_builtin(self.exc),
+            cause=None if self.cause is None else to_builtin(self.cause),
+            exc=None if self.exc is None else to_builtin(self.exc),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            cause=None if node.cause is None else utils.from_builtin(node.cause),
-            exc=None if node.exc is None else utils.from_builtin(node.exc),
+            cause=None if node.cause is None else from_builtin(node.cause),
+            exc=None if node.exc is None else from_builtin(node.exc),
         )
 
     def _transform(self, node_transformer, context):
@@ -1141,19 +1133,19 @@ class Try(stmt):
 
     def _to_builtin(self):
         return ast.Try(
-            body=[utils.to_builtin(x) for x in self.body],
-            finalbody=[utils.to_builtin(x) for x in self.finalbody],
-            handlers=[utils.to_builtin(x) for x in self.handlers],
-            orelse=[utils.to_builtin(x) for x in self.orelse],
+            body=[to_builtin(x) for x in self.body],
+            finalbody=[to_builtin(x) for x in self.finalbody],
+            handlers=[to_builtin(x) for x in self.handlers],
+            orelse=[to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[utils.from_builtin(x) for x in node.body],
-            finalbody=[utils.from_builtin(x) for x in node.finalbody],
-            handlers=[utils.from_builtin(x) for x in node.handlers],
-            orelse=[utils.from_builtin(x) for x in node.orelse],
+            body=[from_builtin(x) for x in node.body],
+            finalbody=[from_builtin(x) for x in node.finalbody],
+            handlers=[from_builtin(x) for x in node.handlers],
+            orelse=[from_builtin(x) for x in node.orelse],
         )
 
     def _transform(self, node_transformer, context):
@@ -1199,15 +1191,15 @@ class Assert(stmt):
 
     def _to_builtin(self):
         return ast.Assert(
-            test=utils.to_builtin(self.test),
-            msg=None if self.msg is None else utils.to_builtin(self.msg),
+            test=to_builtin(self.test),
+            msg=None if self.msg is None else to_builtin(self.msg),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=utils.from_builtin(node.test),
-            msg=None if node.msg is None else utils.from_builtin(node.msg),
+            test=from_builtin(node.test),
+            msg=None if node.msg is None else from_builtin(node.msg),
         )
 
     def _transform(self, node_transformer, context):
@@ -1238,11 +1230,11 @@ class Import(stmt):
     )
 
     def _to_builtin(self):
-        return ast.Import(names=[utils.to_builtin(x) for x in self.names])
+        return ast.Import(names=[to_builtin(x) for x in self.names])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(names=[utils.from_builtin(x) for x in node.names])
+        return cls(names=[from_builtin(x) for x in node.names])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1279,7 +1271,7 @@ class ImportFrom(stmt):
         return ast.ImportFrom(
             level=self.level,
             module=self.module,
-            names=[utils.to_builtin(x) for x in self.names],
+            names=[to_builtin(x) for x in self.names],
         )
 
     @classmethod
@@ -1287,7 +1279,7 @@ class ImportFrom(stmt):
         return cls(
             level=node.level,
             module=node.module,
-            names=[utils.from_builtin(x) for x in node.names],
+            names=[from_builtin(x) for x in node.names],
         )
 
     def _transform(self, node_transformer, context):
@@ -1357,11 +1349,11 @@ class Expr(stmt):
     )
 
     def _to_builtin(self):
-        return ast.Expr(value=utils.to_builtin(self.value))
+        return ast.Expr(value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value))
+        return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1446,15 +1438,13 @@ class BoolOp(expr):
 
     def _to_builtin(self):
         return ast.BoolOp(
-            op=utils.to_builtin(self.op),
-            values=[utils.to_builtin(x) for x in self.values],
+            op=to_builtin(self.op), values=[to_builtin(x) for x in self.values]
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            op=utils.from_builtin(node.op),
-            values=[utils.from_builtin(x) for x in node.values],
+            op=from_builtin(node.op), values=[from_builtin(x) for x in node.values]
         )
 
     def _transform(self, node_transformer, context):
@@ -1484,14 +1474,12 @@ class NamedExpr(expr):
 
     def _to_builtin(self):
         return ast.NamedExpr(
-            target=utils.to_builtin(self.target), value=utils.to_builtin(self.value)
+            target=to_builtin(self.target), value=to_builtin(self.value)
         )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(
-            target=utils.from_builtin(node.target), value=utils.from_builtin(node.value)
-        )
+        return cls(target=from_builtin(node.target), value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1522,17 +1510,17 @@ class BinOp(expr):
 
     def _to_builtin(self):
         return ast.BinOp(
-            left=utils.to_builtin(self.left),
-            op=utils.to_builtin(self.op),
-            right=utils.to_builtin(self.right),
+            left=to_builtin(self.left),
+            op=to_builtin(self.op),
+            right=to_builtin(self.right),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            left=utils.from_builtin(node.left),
-            op=utils.from_builtin(node.op),
-            right=utils.from_builtin(node.right),
+            left=from_builtin(node.left),
+            op=from_builtin(node.op),
+            right=from_builtin(node.right),
         )
 
     def _transform(self, node_transformer, context):
@@ -1561,15 +1549,11 @@ class UnaryOp(expr):
     )
 
     def _to_builtin(self):
-        return ast.UnaryOp(
-            op=utils.to_builtin(self.op), operand=utils.to_builtin(self.operand)
-        )
+        return ast.UnaryOp(op=to_builtin(self.op), operand=to_builtin(self.operand))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(
-            op=utils.from_builtin(node.op), operand=utils.from_builtin(node.operand)
-        )
+        return cls(op=from_builtin(node.op), operand=from_builtin(node.operand))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1596,15 +1580,11 @@ class Lambda(expr):
     )
 
     def _to_builtin(self):
-        return ast.Lambda(
-            args=utils.to_builtin(self.args), body=utils.to_builtin(self.body)
-        )
+        return ast.Lambda(args=to_builtin(self.args), body=to_builtin(self.body))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(
-            args=utils.from_builtin(node.args), body=utils.from_builtin(node.body)
-        )
+        return cls(args=from_builtin(node.args), body=from_builtin(node.body))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1634,17 +1614,17 @@ class IfExp(expr):
 
     def _to_builtin(self):
         return ast.IfExp(
-            body=utils.to_builtin(self.body),
-            orelse=utils.to_builtin(self.orelse),
-            test=utils.to_builtin(self.test),
+            body=to_builtin(self.body),
+            orelse=to_builtin(self.orelse),
+            test=to_builtin(self.test),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=utils.from_builtin(node.body),
-            orelse=utils.from_builtin(node.orelse),
-            test=utils.from_builtin(node.test),
+            body=from_builtin(node.body),
+            orelse=from_builtin(node.orelse),
+            test=from_builtin(node.test),
         )
 
     def _transform(self, node_transformer, context):
@@ -1682,15 +1662,15 @@ class Dict(expr):
 
     def _to_builtin(self):
         return ast.Dict(
-            keys=[utils.to_builtin(x) for x in self.keys],
-            values=[utils.to_builtin(x) for x in self.values],
+            keys=[to_builtin(x) for x in self.keys],
+            values=[to_builtin(x) for x in self.values],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            keys=[utils.from_builtin(x) for x in node.keys],
-            values=[utils.from_builtin(x) for x in node.values],
+            keys=[from_builtin(x) for x in node.keys],
+            values=[from_builtin(x) for x in node.values],
         )
 
     def _transform(self, node_transformer, context):
@@ -1722,11 +1702,11 @@ class Set(expr):
     )
 
     def _to_builtin(self):
-        return ast.Set(elts=[utils.to_builtin(x) for x in self.elts])
+        return ast.Set(elts=[to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[utils.from_builtin(x) for x in node.elts])
+        return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1757,15 +1737,15 @@ class ListComp(expr):
 
     def _to_builtin(self):
         return ast.ListComp(
-            elt=utils.to_builtin(self.elt),
-            generators=[utils.to_builtin(x) for x in self.generators],
+            elt=to_builtin(self.elt),
+            generators=[to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=utils.from_builtin(node.elt),
-            generators=[utils.from_builtin(x) for x in node.generators],
+            elt=from_builtin(node.elt),
+            generators=[from_builtin(x) for x in node.generators],
         )
 
     def _transform(self, node_transformer, context):
@@ -1801,15 +1781,15 @@ class SetComp(expr):
 
     def _to_builtin(self):
         return ast.SetComp(
-            elt=utils.to_builtin(self.elt),
-            generators=[utils.to_builtin(x) for x in self.generators],
+            elt=to_builtin(self.elt),
+            generators=[to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=utils.from_builtin(node.elt),
-            generators=[utils.from_builtin(x) for x in node.generators],
+            elt=from_builtin(node.elt),
+            generators=[from_builtin(x) for x in node.generators],
         )
 
     def _transform(self, node_transformer, context):
@@ -1848,17 +1828,17 @@ class DictComp(expr):
 
     def _to_builtin(self):
         return ast.DictComp(
-            key=utils.to_builtin(self.key),
-            value=utils.to_builtin(self.value),
-            generators=[utils.to_builtin(x) for x in self.generators],
+            key=to_builtin(self.key),
+            value=to_builtin(self.value),
+            generators=[to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            key=utils.from_builtin(node.key),
-            value=utils.from_builtin(node.value),
-            generators=[utils.from_builtin(x) for x in node.generators],
+            key=from_builtin(node.key),
+            value=from_builtin(node.value),
+            generators=[from_builtin(x) for x in node.generators],
         )
 
     def _transform(self, node_transformer, context):
@@ -1896,15 +1876,15 @@ class GeneratorExp(expr):
 
     def _to_builtin(self):
         return ast.GeneratorExp(
-            elt=utils.to_builtin(self.elt),
-            generators=[utils.to_builtin(x) for x in self.generators],
+            elt=to_builtin(self.elt),
+            generators=[to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=utils.from_builtin(node.elt),
-            generators=[utils.from_builtin(x) for x in node.generators],
+            elt=from_builtin(node.elt),
+            generators=[from_builtin(x) for x in node.generators],
         )
 
     def _transform(self, node_transformer, context):
@@ -1932,11 +1912,11 @@ class Await(expr):
     )
 
     def _to_builtin(self):
-        return ast.Await(value=utils.to_builtin(self.value))
+        return ast.Await(value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value))
+        return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1959,13 +1939,11 @@ class Yield(expr):
     )
 
     def _to_builtin(self):
-        return ast.Yield(
-            value=None if self.value is None else utils.to_builtin(self.value)
-        )
+        return ast.Yield(value=None if self.value is None else to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=None if node.value is None else utils.from_builtin(node.value))
+        return cls(value=None if node.value is None else from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -1989,11 +1967,11 @@ class YieldFrom(expr):
     )
 
     def _to_builtin(self):
-        return ast.YieldFrom(value=utils.to_builtin(self.value))
+        return ast.YieldFrom(value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value))
+        return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2029,17 +2007,17 @@ class Compare(expr):
 
     def _to_builtin(self):
         return ast.Compare(
-            left=utils.to_builtin(self.left),
-            comparators=[utils.to_builtin(x) for x in self.comparators],
-            ops=[utils.to_builtin(x) for x in self.ops],
+            left=to_builtin(self.left),
+            comparators=[to_builtin(x) for x in self.comparators],
+            ops=[to_builtin(x) for x in self.ops],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            left=utils.from_builtin(node.left),
-            comparators=[utils.from_builtin(x) for x in node.comparators],
-            ops=[utils.from_builtin(x) for x in node.ops],
+            left=from_builtin(node.left),
+            comparators=[from_builtin(x) for x in node.comparators],
+            ops=[from_builtin(x) for x in node.ops],
         )
 
     def _transform(self, node_transformer, context):
@@ -2086,17 +2064,17 @@ class Call(expr):
 
     def _to_builtin(self):
         return ast.Call(
-            func=utils.to_builtin(self.func),
-            args=[utils.to_builtin(x) for x in self.args],
-            keywords=[utils.to_builtin(x) for x in self.keywords],
+            func=to_builtin(self.func),
+            args=[to_builtin(x) for x in self.args],
+            keywords=[to_builtin(x) for x in self.keywords],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            func=utils.from_builtin(node.func),
-            args=[utils.from_builtin(x) for x in node.args],
-            keywords=[utils.from_builtin(x) for x in node.keywords],
+            func=from_builtin(node.func),
+            args=[from_builtin(x) for x in node.args],
+            keywords=[from_builtin(x) for x in node.keywords],
         )
 
     def _transform(self, node_transformer, context):
@@ -2138,21 +2116,21 @@ class FormattedValue(expr):
 
     def _to_builtin(self):
         return ast.FormattedValue(
-            value=utils.to_builtin(self.value),
+            value=to_builtin(self.value),
             conversion=self.conversion,
             format_spec=None
             if self.format_spec is None
-            else utils.to_builtin(self.format_spec),
+            else to_builtin(self.format_spec),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            value=utils.from_builtin(node.value),
+            value=from_builtin(node.value),
             conversion=node.conversion,
             format_spec=None
             if node.format_spec is None
-            else utils.from_builtin(node.format_spec),
+            else from_builtin(node.format_spec),
         )
 
     def _transform(self, node_transformer, context):
@@ -2184,11 +2162,11 @@ class JoinedStr(expr):
     )
 
     def _to_builtin(self):
-        return ast.JoinedStr(values=[utils.to_builtin(x) for x in self.values])
+        return ast.JoinedStr(values=[to_builtin(x) for x in self.values])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(values=[utils.from_builtin(x) for x in node.values])
+        return cls(values=[from_builtin(x) for x in node.values])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2236,11 +2214,11 @@ class Attribute(expr):
     )
 
     def _to_builtin(self):
-        return ast.Attribute(attr=self.attr, value=utils.to_builtin(self.value))
+        return ast.Attribute(attr=self.attr, value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(attr=node.attr, value=utils.from_builtin(node.value))
+        return cls(attr=node.attr, value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2264,15 +2242,11 @@ class Subscript(expr):
     )
 
     def _to_builtin(self):
-        return ast.Subscript(
-            slice=utils.to_builtin(self.slice), value=utils.to_builtin(self.value)
-        )
+        return ast.Subscript(slice=to_builtin(self.slice), value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(
-            slice=utils.from_builtin(node.slice), value=utils.from_builtin(node.value)
-        )
+        return cls(slice=from_builtin(node.slice), value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2295,11 +2269,11 @@ class Starred(expr):
     )
 
     def _to_builtin(self):
-        return ast.Starred(value=utils.to_builtin(self.value))
+        return ast.Starred(value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value))
+        return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2344,11 +2318,11 @@ class List(expr):
     )
 
     def _to_builtin(self):
-        return ast.List(elts=[utils.to_builtin(x) for x in self.elts])
+        return ast.List(elts=[to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[utils.from_builtin(x) for x in node.elts])
+        return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2375,11 +2349,11 @@ class Tuple(expr):
     )
 
     def _to_builtin(self):
-        return ast.Tuple(elts=[utils.to_builtin(x) for x in self.elts])
+        return ast.Tuple(elts=[to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[utils.from_builtin(x) for x in node.elts])
+        return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -2415,17 +2389,17 @@ class Slice(expr):
 
     def _to_builtin(self):
         return ast.Slice(
-            lower=None if self.lower is None else utils.to_builtin(self.lower),
-            step=None if self.step is None else utils.to_builtin(self.step),
-            upper=None if self.upper is None else utils.to_builtin(self.upper),
+            lower=None if self.lower is None else to_builtin(self.lower),
+            step=None if self.step is None else to_builtin(self.step),
+            upper=None if self.upper is None else to_builtin(self.upper),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            lower=None if node.lower is None else utils.from_builtin(node.lower),
-            step=None if node.step is None else utils.from_builtin(node.step),
-            upper=None if node.upper is None else utils.from_builtin(node.upper),
+            lower=None if node.lower is None else from_builtin(node.lower),
+            step=None if node.step is None else from_builtin(node.step),
+            upper=None if node.upper is None else from_builtin(node.upper),
         )
 
     def _transform(self, node_transformer, context):
@@ -3069,18 +3043,18 @@ class comprehension(Node):
     def _to_builtin(self):
         return ast.comprehension(
             is_async=self.is_async,
-            iter=utils.to_builtin(self.iter),
-            target=utils.to_builtin(self.target),
-            ifs=[utils.to_builtin(x) for x in self.ifs],
+            iter=to_builtin(self.iter),
+            target=to_builtin(self.target),
+            ifs=[to_builtin(x) for x in self.ifs],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             is_async=node.is_async,
-            iter=utils.from_builtin(node.iter),
-            target=utils.from_builtin(node.target),
-            ifs=[utils.from_builtin(x) for x in node.ifs],
+            iter=from_builtin(node.iter),
+            target=from_builtin(node.target),
+            ifs=[from_builtin(x) for x in node.ifs],
         )
 
     def _transform(self, node_transformer, context):
@@ -3126,17 +3100,17 @@ class ExceptHandler(excepthandler):
 
     def _to_builtin(self):
         return ast.ExceptHandler(
-            body=[utils.to_builtin(x) for x in self.body],
+            body=[to_builtin(x) for x in self.body],
             name=self.name,
-            type=None if self.type is None else utils.to_builtin(self.type),
+            type=None if self.type is None else to_builtin(self.type),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[utils.from_builtin(x) for x in node.body],
+            body=[from_builtin(x) for x in node.body],
             name=node.name,
-            type=None if node.type is None else utils.from_builtin(node.type),
+            type=None if node.type is None else from_builtin(node.type),
         )
 
     def _transform(self, node_transformer, context):
@@ -3203,25 +3177,25 @@ class arguments(Node):
 
     def _to_builtin(self):
         return ast.arguments(
-            args=[utils.to_builtin(x) for x in self.args],
-            defaults=[utils.to_builtin(x) for x in self.defaults],
-            kw_defaults=[utils.to_builtin(x) for x in self.kw_defaults],
-            kwarg=None if self.kwarg is None else utils.to_builtin(self.kwarg),
-            kwonlyargs=[utils.to_builtin(x) for x in self.kwonlyargs],
-            posonlyargs=[utils.to_builtin(x) for x in self.posonlyargs],
-            vararg=None if self.vararg is None else utils.to_builtin(self.vararg),
+            args=[to_builtin(x) for x in self.args],
+            defaults=[to_builtin(x) for x in self.defaults],
+            kw_defaults=[to_builtin(x) for x in self.kw_defaults],
+            kwarg=None if self.kwarg is None else to_builtin(self.kwarg),
+            kwonlyargs=[to_builtin(x) for x in self.kwonlyargs],
+            posonlyargs=[to_builtin(x) for x in self.posonlyargs],
+            vararg=None if self.vararg is None else to_builtin(self.vararg),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=[utils.from_builtin(x) for x in node.args],
-            defaults=[utils.from_builtin(x) for x in node.defaults],
-            kw_defaults=[utils.from_builtin(x) for x in node.kw_defaults],
-            kwarg=None if node.kwarg is None else utils.from_builtin(node.kwarg),
-            kwonlyargs=[utils.from_builtin(x) for x in node.kwonlyargs],
-            posonlyargs=[utils.from_builtin(x) for x in node.posonlyargs],
-            vararg=None if node.vararg is None else utils.from_builtin(node.vararg),
+            args=[from_builtin(x) for x in node.args],
+            defaults=[from_builtin(x) for x in node.defaults],
+            kw_defaults=[from_builtin(x) for x in node.kw_defaults],
+            kwarg=None if node.kwarg is None else from_builtin(node.kwarg),
+            kwonlyargs=[from_builtin(x) for x in node.kwonlyargs],
+            posonlyargs=[from_builtin(x) for x in node.posonlyargs],
+            vararg=None if node.vararg is None else from_builtin(node.vararg),
         )
 
     def _transform(self, node_transformer, context):
@@ -3289,9 +3263,7 @@ class arg(Node):
     def _to_builtin(self):
         return ast.arg(
             arg=self.arg,
-            annotation=None
-            if self.annotation is None
-            else utils.to_builtin(self.annotation),
+            annotation=None if self.annotation is None else to_builtin(self.annotation),
             type_comment=self.type_comment,
         )
 
@@ -3301,7 +3273,7 @@ class arg(Node):
             arg=node.arg,
             annotation=None
             if node.annotation is None
-            else utils.from_builtin(node.annotation),
+            else from_builtin(node.annotation),
             type_comment=node.type_comment,
         )
 
@@ -3332,11 +3304,11 @@ class keyword(Node):
     )
 
     def _to_builtin(self):
-        return ast.keyword(value=utils.to_builtin(self.value), arg=self.arg)
+        return ast.keyword(value=to_builtin(self.value), arg=self.arg)
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value), arg=node.arg)
+        return cls(value=from_builtin(node.value), arg=node.arg)
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -3386,19 +3358,19 @@ class withitem(Node):
 
     def _to_builtin(self):
         return ast.withitem(
-            context_expr=utils.to_builtin(self.context_expr),
+            context_expr=to_builtin(self.context_expr),
             optional_vars=None
             if self.optional_vars is None
-            else utils.to_builtin(self.optional_vars),
+            else to_builtin(self.optional_vars),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            context_expr=utils.from_builtin(node.context_expr),
+            context_expr=from_builtin(node.context_expr),
             optional_vars=None
             if node.optional_vars is None
-            else utils.from_builtin(node.optional_vars),
+            else from_builtin(node.optional_vars),
         )
 
     def _transform(self, node_transformer, context):
@@ -3438,17 +3410,17 @@ class match_case(Node):
 
     def _to_builtin(self):
         return ast.match_case(
-            pattern=utils.to_builtin(self.pattern),
-            body=[utils.to_builtin(x) for x in self.body],
-            guard=None if self.guard is None else utils.to_builtin(self.guard),
+            pattern=to_builtin(self.pattern),
+            body=[to_builtin(x) for x in self.body],
+            guard=None if self.guard is None else to_builtin(self.guard),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            pattern=utils.from_builtin(node.pattern),
-            body=[utils.from_builtin(x) for x in node.body],
-            guard=None if node.guard is None else utils.from_builtin(node.guard),
+            pattern=from_builtin(node.pattern),
+            body=[from_builtin(x) for x in node.body],
+            guard=None if node.guard is None else from_builtin(node.guard),
         )
 
     def _transform(self, node_transformer, context):
@@ -3483,11 +3455,11 @@ class MatchValue(pattern):
     )
 
     def _to_builtin(self):
-        return ast.MatchValue(value=utils.to_builtin(self.value))
+        return ast.MatchValue(value=to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=utils.from_builtin(node.value))
+        return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -3532,11 +3504,11 @@ class MatchSequence(pattern):
     )
 
     def _to_builtin(self):
-        return ast.MatchSequence(patterns=[utils.to_builtin(x) for x in self.patterns])
+        return ast.MatchSequence(patterns=[to_builtin(x) for x in self.patterns])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(patterns=[utils.from_builtin(x) for x in node.patterns])
+        return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
@@ -3576,16 +3548,16 @@ class MatchMapping(pattern):
 
     def _to_builtin(self):
         return ast.MatchMapping(
-            keys=[utils.to_builtin(x) for x in self.keys],
-            patterns=[utils.to_builtin(x) for x in self.patterns],
+            keys=[to_builtin(x) for x in self.keys],
+            patterns=[to_builtin(x) for x in self.patterns],
             rest=self.rest,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            keys=[utils.from_builtin(x) for x in node.keys],
-            patterns=[utils.from_builtin(x) for x in node.patterns],
+            keys=[from_builtin(x) for x in node.keys],
+            patterns=[from_builtin(x) for x in node.patterns],
             rest=node.rest,
         )
 
@@ -3635,19 +3607,19 @@ class MatchClass(pattern):
 
     def _to_builtin(self):
         return ast.MatchClass(
-            cls=utils.to_builtin(self.cls),
+            cls=to_builtin(self.cls),
             kwd_attrs=self.kwd_attrs,
-            kwd_patterns=[utils.to_builtin(x) for x in self.kwd_patterns],
-            patterns=[utils.to_builtin(x) for x in self.patterns],
+            kwd_patterns=[to_builtin(x) for x in self.kwd_patterns],
+            patterns=[to_builtin(x) for x in self.patterns],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            cls=utils.from_builtin(node.cls),
+            cls=from_builtin(node.cls),
             kwd_attrs=node.kwd_attrs,
-            kwd_patterns=[utils.from_builtin(x) for x in node.kwd_patterns],
-            patterns=[utils.from_builtin(x) for x in node.patterns],
+            kwd_patterns=[from_builtin(x) for x in node.kwd_patterns],
+            patterns=[from_builtin(x) for x in node.patterns],
         )
 
     def _transform(self, node_transformer, context):
@@ -3711,14 +3683,14 @@ class MatchAs(pattern):
     def _to_builtin(self):
         return ast.MatchAs(
             name=self.name,
-            pattern=None if self.pattern is None else utils.to_builtin(self.pattern),
+            pattern=None if self.pattern is None else to_builtin(self.pattern),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             name=node.name,
-            pattern=None if node.pattern is None else utils.from_builtin(node.pattern),
+            pattern=None if node.pattern is None else from_builtin(node.pattern),
         )
 
     def _transform(self, node_transformer, context):
@@ -3748,11 +3720,11 @@ class MatchOr(pattern):
     )
 
     def _to_builtin(self):
-        return ast.MatchOr(patterns=[utils.to_builtin(x) for x in self.patterns])
+        return ast.MatchOr(patterns=[to_builtin(x) for x in self.patterns])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(patterns=[utils.from_builtin(x) for x in node.patterns])
+        return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])

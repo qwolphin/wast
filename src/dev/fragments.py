@@ -1,7 +1,8 @@
 from itertools import chain
 from pathlib import Path
 
-from activated_wast import n, wast
+from . import nodes as n
+from .utils import parse
 
 
 def generate_key(entry):
@@ -11,7 +12,7 @@ def generate_key(entry):
 
 def load_fragment(entry):
     text = entry.read_text()
-    raw = wast.parse(text)
+    raw = parse(text)
 
     if text.startswith("# raw\n"):
         return raw

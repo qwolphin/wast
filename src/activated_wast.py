@@ -1,10 +1,10 @@
 import os
 
 if "DEV" in os.environ:
-    import dev as wast
-    from dev import n
-    from dev.helpers import _
+    from dev import *
+    from dev import _
+    from dev.fragments import get_fragment
 else:
-    import stable as wast
-    from stable import n
-    from stable.helpers import _
+    from stable import *
+    from stable import _
+    from stable.fragments import get_fragment

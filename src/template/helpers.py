@@ -5,7 +5,7 @@ from typing import Literal
 
 import attrs
 
-from . import wast as n
+from . import nodes as n
 
 
 class FreeUnderscore:
