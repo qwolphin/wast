@@ -2,8 +2,14 @@
 
 set -e -x
 
-time traceback-with-variables render.py 
+time traceback-with-variables render.py
 
-black dev/wast.py
+cp fragments/helpers.py dev/
+cp fragments/utils.py dev/
+cp fragments/common.py dev/
+cp fragments/validators.py dev/
+cp fragments/__init__.py dev/
+
+black dev/
 
 python3 -m dev.wast

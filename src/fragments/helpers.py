@@ -1,7 +1,8 @@
 # raw
+from abc import ABC
 from itertools import cycle
 from typing import Literal
-from abc import ABC
+
 import attrs
 
 from . import wast as n
@@ -46,7 +47,7 @@ OperatorString = Literal[
 ]
 
 
-def compare(*args: OperatorString | n.expr) -> n.Compare:
+def mk_compare(*args: OperatorString | n.expr) -> n.Compare:
     exprs = []
     operators = []
     try:

@@ -183,7 +183,7 @@ class FieldsMixin:
     @property
     def to_builtin(self):
         kwargs = {
-            x.name: x.mk_transformer(_.self._(x.name), lambda x: _.utils.to_builtin(x))
+            x.name: x.mk_transformer(_.self._(x.name), lambda x: _.to_builtin(x))
             for x in self.parsed_fields
         }
         ret = _.ast._(self.name)(**kwargs)
@@ -199,7 +199,7 @@ class FieldsMixin:
     @property
     def from_builtin(self):
         kwargs = {
-            x.name: x.mk_transformer(_.node._(x.name), lambda x: _.utils.from_builtin(x))
+            x.name: x.mk_transformer(_.node._(x.name), lambda x: _.from_builtin(x))
             for x in self.parsed_fields
         }
         ret = _.cls(**kwargs)
@@ -379,8 +379,4 @@ def asdf(e, c):
     return operator_overloads.methods
 """
 
-helpers_tree = get_fragment("helpers")
-helpers_text = wast.unparse(helpers_tree)
-
-Path("dev/helpers.py").write_text(helpers_text)
 Path("dev/wast.py").write_text(nodes_text)

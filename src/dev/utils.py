@@ -1,13 +1,12 @@
+import ast
 from functools import wraps
 from inspect import signature
 from typing import Callable, Optional, Sequence, Type, Union
 
 import attrs
-import ast
 
-from .wast import Node, NODES
-
-from .helpers import BoundUnderscore
+from .common import Node, WrappedNode, TransformerContext
+from .wast import from_builtin, to_builtin
 
 
 def unparse(node: Node) -> str:
@@ -20,40 +19,6 @@ def parse(text: str) -> Node:
     tree = ast.parse(text)
     return from_builtin(tree)
 
-
-def unparse(node: Node) -> str:
-    tree = to_builtin(node)
-    tree = ast.fix_missing_locations(tree)
-    return ast.unparse(tree)
-
-
-def parse(text: str) -> Node:
-    tree = ast.parse(text)
-    return from_builtin(tree)
-
-
-def to_builtin(node: Node) -> ast.AST:
-    match node:
-        case BoundUnderscore():
-            node = node.__inner__
-        case Node():
-            pass
-        case any:
-            raise TypeError("Wrong type")
-
-    return node._to_builtin()
-
-
-def from_builtin(node: ast.AST) -> Node:
-    assert isinstance(node, ast.AST)
-    t = node.__class__.__name__
-    return NODES[t]._from_builtin(node)
-
-
-@attrs.define
-class TransformerContext:
-    parents: Sequence[Node]
-    original: Node
 
 
 def transform(node: Node, fn) -> Node:

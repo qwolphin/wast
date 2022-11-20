@@ -48,7 +48,7 @@ class DeepIterableConverter(object):
 
     def __repr__(self):
         return "<deep_iterable converter using {converter!r}>".format(
-            converter=self.member_converter()
+            converter=self.member_converter
         )
 
 
