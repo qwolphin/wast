@@ -377,4 +377,4 @@ def asdf(e, c):
     return operator_overloads.methods
 """
 
-Path("dev/nodes.py").write_text(nodes_text)
+Path("wast/nodes.py").write_text(nodes_text)

@@ -6,7 +6,7 @@ from typing import Callable, Optional, Sequence, Type, Union
 import attrs
 
 from .common import Node, WrappedNode, TransformerContext
-from .wast import from_builtin, to_builtin
+from .nodes import from_builtin, to_builtin
 
 
 def unparse(node: Node) -> str:

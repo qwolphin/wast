@@ -1,2 +1,5 @@
 docs/_build
 !docs/_build/.gitkeep
+
+wast/
+!wast/.gitkeep

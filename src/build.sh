@@ -4,8 +4,8 @@ set -e -x
 
 time traceback-with-variables render.py
 
-cp template/* dev/
+cp template/* wast/
 
-black dev/
+black wast/
 
-python3 -m dev.wast
+python3 -c 'from wast import *'

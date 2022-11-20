@@ -3,7 +3,7 @@ from __future__ import annotations
 import keyword
 from typing import Any, Callable, Union
 
-from . import wast
+from . import nodes as n
 from attrs import define, field
 
 
@@ -59,16 +59,14 @@ def unwrap_underscore(value):
     return value
 
 
-def convert_identifier(value: Union[str | wast.Name]) -> str:
+def convert_identifier(value: Union[str | n.Name]) -> str:
     match value:
         case str():
             val = value
-        case wast.Name():
+        case n.Name():
             val = value.id
         case _:
-            raise TypeError(
-                f"{val} has type {val.__class__}. Must be {str} or wast.Name"
-            )
+            raise TypeError(f"{val} has type {val.__class__}. Must be {str} or n.Name")
 
     if keyword.iskeyword(val):
         raise ValueError(f"{val} is a Python keyword")
