@@ -1,18 +1,20 @@
-import asdl
-import attrs
-import bound_underscore
-from activated_wast import w, _
 from itertools import chain
 from pathlib import Path
+
+import attrs
+
+import asdl
+import operator_overloads
+from activated_wast import _, n, wast
 from fragments import get_fragment, report_unused_fragments
 
 
 def mk_io_validator(val):
-    return _.ProxyInstanceOfValidator(w.Lambda(w.arguments(), val))
+    return _.ProxyInstanceOfValidator(n.Lambda(n.arguments(), val))
 
 
 def const(val):
-    return w.Constant(val)
+    return n.Constant(val)
 
 
 @attrs.define
@@ -46,18 +48,18 @@ class Field:
     def mk_transformer(self, value_expr, mk_fn):
         if self.is_object:
             if self.opt:
-                return w.IfExp(
+                return n.IfExp(
                     body=const(None),
                     orelse=mk_fn(value_expr),
-                    test=w.Compare(
-                        left=value_expr, comparators=[const(None)], ops=[w.Is()]
+                    test=n.Compare(
+                        left=value_expr, comparators=[const(None)], ops=[n.Is()]
                     ),
                 )
             elif self.seq:
-                return w.ListComp(
+                return n.ListComp(
                     elt=mk_fn(_.x),
                     generators=[
-                        w.comprehension(is_async=0, iter=value_expr, target=_.x._)
+                        n.comprehension(is_async=0, iter=value_expr, target=_.x)
                     ],
                 )
             else:
@@ -70,22 +72,22 @@ class Field:
         if not self.is_object:
             return []
 
-        val = _.self._(self.name)._
-        iter = val()._children()._
+        val = _.self._(self.name)
+        iter = val()._children()
         if self.opt:
-            ret = w.If(
-                test=w.Compare(left=val, comparators=[const(None)], ops=[w.IsNot()]),
-                body=[w.Expr(w.YieldFrom(value=iter))],
+            ret = n.If(
+                test=n.Compare(left=val, comparators=[const(None)], ops=[n.IsNot()]),
+                body=[n.Expr(n.YieldFrom(value=iter))],
             )
         elif self.seq:
-            inner = w.If(
-                test=w.Compare(left=_.x._, comparators=[const(None)], ops=[w.IsNot()]),
-                body=[w.Expr(w.YieldFrom(value=_.x._children()._))],
+            inner = n.If(
+                test=n.Compare(left=_.x, comparators=[const(None)], ops=[n.IsNot()]),
+                body=[n.Expr(n.YieldFrom(value=_.x._children()))],
             )
-            ret = w.For(iter=val, target=_.x._, body=[inner])
+            ret = n.For(iter=val, target=_.x, body=[inner])
 
         else:
-            ret = w.Expr(w.YieldFrom(value=iter))
+            ret = n.Expr(n.YieldFrom(value=iter))
 
         return [ret]
 
@@ -97,21 +99,20 @@ class Field:
         converters = []
         match self.type:
             case "identifier":
-                annotation = _.str._
+                annotation = _.str
                 converters += [_.convert_identifier]
             case "string":
-                annotation = _.str._
+                annotation = _.str
                 validators += [mk_io_validator(annotation)]
             case "int":
-                annotation = _.int._
+                annotation = _.int
                 validators += [mk_io_validator(annotation)]
             case "constant":
-                annotation = _.Any._
+                annotation = _.Any
             case _:
-                type_tuple = w.Tuple((_(self.type), _.TemplateVariable))
-                annotation = _.Union[type_tuple]
+                annotation = _(self.type)
                 converters += [_.unwrap_underscore]
-                validators += [mk_io_validator(type_tuple)]
+                validators += [mk_io_validator(annotation)]
 
         if validators:
             first, *rest = validators
@@ -139,7 +140,7 @@ class Field:
             if converters:
                 field_args |= dict(converter=_.attrs.converters.optional(converter))
 
-            field_args |= dict(default=w.Constant(None))
+            field_args |= dict(default=n.Constant(None))
         elif spec.seq:
             annotation = _.Sequence[annotation]
 
@@ -160,24 +161,18 @@ class Field:
                 field_args |= dict(converter=converter)
 
         if self.name in ("type_comment", "type_ignores"):
-            field_args |= dict(repr=w.Constant(False))
+            field_args |= dict(repr=n.Constant(False))
 
-        node = w.AnnAssign(
-            target=_(self.name)._,
+        node = n.AnnAssign(
+            target=_(self.name),
             annotation=annotation,
-            value=_.attrs.field(**field_args)._,
+            value=_.attrs.field(**field_args),
             simple=1,
         )
         return [node]
 
 
-class ClassSuffixMixin:
-    @property
-    def class_suffix(self):
-        return get_fragment("class_suffix", self.name, default=[])
-
-
-class FieldsMixin(ClassSuffixMixin):
+class FieldsMixin:
     @property
     def parsed_fields(self):
         return sorted(
@@ -188,42 +183,42 @@ class FieldsMixin(ClassSuffixMixin):
     @property
     def to_builtin(self):
         kwargs = {
-            x.name: x.mk_transformer(_.self._(x.name), lambda x: _.to_builtin(x))
+            x.name: x.mk_transformer(_.self._(x.name), lambda x: _.utils.to_builtin(x))
             for x in self.parsed_fields
         }
-        ret = _.ast._(self.name)(**kwargs)._
+        ret = _.ast._(self.name)(**kwargs)
 
-        return w.FunctionDef(
+        return n.FunctionDef(
             name="_to_builtin",
-            args=w.arguments(
-                args=[w.arg(arg="self")],
+            args=n.arguments(
+                args=[n.arg(arg="self")],
             ),
-            body=[w.Return(ret)],
+            body=[n.Return(ret)],
         )
 
     @property
     def from_builtin(self):
         kwargs = {
-            x.name: x.mk_transformer(_.node._(x.name), lambda x: _.from_builtin(x))
+            x.name: x.mk_transformer(_.node._(x.name), lambda x: _.utils.from_builtin(x))
             for x in self.parsed_fields
         }
-        ret = _.cls(**kwargs)._
+        ret = _.cls(**kwargs)
 
-        return w.FunctionDef(
+        return n.FunctionDef(
             name="_from_builtin",
-            decorator_list=[_("classmethod")._],
-            args=w.arguments(
-                args=[w.arg(arg="cls"), w.arg(arg="node")],
+            decorator_list=[_.classmethod],
+            args=n.arguments(
+                args=[n.arg(arg="cls"), n.arg(arg="node")],
             ),
-            body=[w.Return(ret)],
+            body=[n.Return(ret)],
         )
 
     @property
     def transform(self):
-        inner_context = w.Assign(
+        inner_context = n.Assign(
             targets=[_.inner_context],
             value=_.TransformerContext(
-                parents=w.List([_.self, w.Starred(_.context.parents)])
+                parents=n.List([_.self, n.Starred(_.context.parents)])
             ),
         )
         kwargs = {
@@ -233,33 +228,32 @@ class FieldsMixin(ClassSuffixMixin):
             )
             for x in self.parsed_fields
         }
-        transformed = w.Assign(targets=[_.transformed], value=_(self.name)(**kwargs))
+        transformed = n.Assign(targets=[_.transformed], value=_(self.name)(**kwargs))
         ret = _.node_transformer(_.transformed, _.context)
 
-        return w.FunctionDef(
+        return n.FunctionDef(
             name="_transform",
-            args=w.arguments(
+            args=n.arguments(
                 args=[
-                    w.arg(arg="self"),
-                    w.arg(arg="node_transformer"),
-                    w.arg(arg="context"),
+                    n.arg(arg="self"),
+                    n.arg(arg="node_transformer"),
+                    n.arg(arg="context"),
                 ],
-                defaults=[_.TransformerContext()],
             ),
-            body=[inner_context, transformed, w.Return(ret)],
+            body=[inner_context, transformed, n.Return(ret)],
         )
 
     @property
     def nodes_iter(self):
         body = [
-            w.Expr(w.Yield(value=_.self._)),
+            n.Expr(n.Yield(value=_.self)),
             *chain.from_iterable(x.nodes_iter_entry for x in self.parsed_fields),
         ]
-        return w.FunctionDef(
+        return n.FunctionDef(
             name="_children",
-            args=w.arguments(
+            args=n.arguments(
                 args=[
-                    w.arg(arg="self"),
+                    n.arg(arg="self"),
                 ],
             ),
             body=body,
@@ -267,9 +261,9 @@ class FieldsMixin(ClassSuffixMixin):
 
     @property
     def rendered(self):
-        node = w.ClassDef(
-            decorator_list=[_.attrs.define()._],
-            bases=[_(self.base_name)._],
+        node = n.ClassDef(
+            decorator_list=[_.attrs.frozen()],
+            bases=[_(self.base_name)],
             name=self.name,
             body=[
                 *chain.from_iterable(x.rendered for x in self.parsed_fields),
@@ -277,7 +271,6 @@ class FieldsMixin(ClassSuffixMixin):
                 self.from_builtin,
                 self.transform,
                 self.nodes_iter,
-                *self.class_suffix,
             ],
         )
         return [node]
@@ -298,7 +291,7 @@ class Constructor(FieldsMixin):
 
 
 @attrs.define
-class Sum(ClassSuffixMixin):
+class Sum:
     name: str
     spec: asdl.Sum
 
@@ -312,10 +305,10 @@ class Sum(ClassSuffixMixin):
 
     @property
     def rendered(self):
-        base = w.ClassDef(
-            bases=[_.Node._],
+        base = n.ClassDef(
+            bases=[_.Node],
             name=self.name,
-            body=self.class_suffix or [w.Pass()],
+            body=[n.Pass()],
         )
         return [
             base,
@@ -361,23 +354,33 @@ class TopLevel:
 
     @property
     def rendered(self):
-        registry = w.Assign(
+        registry = n.Assign(
             value=_.dict(**{x.name: _(x.name) for x in self.nodes}),
             targets=[_.NODES],
         )
-        return w.Module(
+        return n.Module(
             [
                 *get_fragment("header"),
-                bound_underscore.rendered,
                 *chain.from_iterable(x.rendered for x in self.dfns_parsed),
                 registry,
-                get_fragment("template_variable"),
             ]
         )
 
 
 dfns = asdl.parse("Python.asdl").dfns
-rendered = TopLevel(dfns=dfns).rendered
-code = w.unparse(rendered)
+nodes_tree = TopLevel(dfns=dfns).rendered
+nodes_text = wast.unparse(nodes_tree)
 
-Path("dev/wast.py").write_text(code)
+"""
+from helpers import transformer
+
+@transformer(filter=lambda e, c: n == n.Expr(n.Name('___operator_overloads')))
+def asdf(e, c):
+    return operator_overloads.methods
+"""
+
+helpers_tree = get_fragment("helpers")
+helpers_text = wast.unparse(helpers_tree)
+
+Path("dev/helpers.py").write_text(helpers_text)
+Path("dev/wast.py").write_text(nodes_text)

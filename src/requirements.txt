@@ -1,4 +1,14 @@
-traceback-with-variables
-astor
+# common
 attrs
+
+# debug
+traceback-with-variables
+
+# code formatters
 black
+isort
+
+# docs
+sphinx
+sphinx_rtd_theme
+myst-parser

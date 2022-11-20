@@ -1,6 +1,4 @@
-from activated_wast import w, _
-from fragments import get_fragment
-import attrs
+from activated_wast import _, n
 
 binops = {
     # simple
@@ -25,48 +23,50 @@ binops = {
 unops = {
     "__neg__": _.USub(),
     "__pos__": _.UAdd(),
-    "__pos__": _.Invert(),
+    "__invert__": _.Invert(),
 }
 
 cmpops = {
+    # < <=
     "__lt__": _.Lt(),
     "__le__": _.Le(),
+    # > >=
     "__gt__": _.Gt(),
     "__ge__": _.Ge(),
+    # = !=
     "__eq__": _.Eq(),
     "__ne__": _.NotEq(),
-    "__contains__": _.In(),
 }
 
 
-inr = _.self.__inner__
-otr = _.other.__inner__
+inr = _.self._("__inner__")
+otr = _.other._("__inner__")
 
 
 def render_binop(dunder_name, op):
     ret = _.BoundUnderscore(_.BinOp(left=inr, op=op, right=otr))
-    return w.FunctionDef(
+    return n.FunctionDef(
         name=dunder_name,
-        args=w.arguments(
+        args=n.arguments(
             args=[
-                w.arg(arg="self"),
-                w.arg(arg="other"),
+                n.arg(arg="self"),
+                n.arg(arg="other"),
             ],
         ),
-        body=[w.Return(ret)],
+        body=[n.Return(ret)],
     )
 
 
 def render_unop(dunder_name, op):
     ret = _.UnaryOp(op=op, operand=inr)
-    return w.FunctionDef(
+    return n.FunctionDef(
         name=dunder_name,
-        args=w.arguments(
+        args=n.arguments(
             args=[
-                w.arg(arg="self"),
+                n.arg(arg="self"),
             ],
         ),
-        body=[w.Return(ret)],
+        body=[n.Return(ret)],
     )
 
 
@@ -74,28 +74,24 @@ def render_cmpop(dunder_name, op):
     ret = _.BoundUnderscore(
         _.Compare(
             left=inr,
-            comparators=w.List([otr]),
-            ops=w.List([op]),
+            comparators=n.List([otr]),
+            ops=n.List([op]),
         )
     )
-    return w.FunctionDef(
+    return n.FunctionDef(
         name=dunder_name,
-        args=w.arguments(
+        args=n.arguments(
             args=[
-                w.arg(arg="self"),
-                w.arg(arg="other"),
+                n.arg(arg="self"),
+                n.arg(arg="other"),
             ],
         ),
-        body=[w.Return(ret)],
+        body=[n.Return(ret)],
     )
 
 
-c_def = get_fragment("BoundUnderscore")
-body = [
-    *c_def.body,
+methods = [
     *(render_binop(k, v) for k, v in binops.items()),
     *(render_unop(k, v) for k, v in unops.items()),
     *(render_cmpop(k, v) for k, v in cmpops.items()),
 ]
-
-rendered = attrs.evolve(c_def, body=body)

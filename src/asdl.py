@@ -19,8 +19,8 @@
 # [1] "The Zephyr Abstract Syntax Description Language" by Wang, et. al. See
 #     http://asdl.sourceforge.net/
 # -------------------------------------------------------------------------------
-from collections import namedtuple
 import re
+from collections import namedtuple
 
 __all__ = [
     "builtin_types",

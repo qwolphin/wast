@@ -1,11 +1,12 @@
 import os
 
 if "DEV" in os.environ:
-    import dev.wast as w
-    from dev.wast import _
-    from dev.utils import transformer
+    from dev import n
+    import dev as wast
+    from dev.helpers import _
 else:
-    import stable.wast as w
+    import stable.wast as n
+    import stable.wast as wast
     from stable.wast import _
 
     # from stable.utils import transformer

@@ -1,183 +1,36 @@
 from __future__ import annotations
 import ast
+from typing import Callable, Optional, Sequence, Union
 import attrs
-from typing import Optional, Sequence, Callable, Union
 from .validators import (
-    convert_identifier,
-    unwrap_underscore,
     DeepIterableConverter,
     ProxyInstanceOfValidator,
+    convert_identifier,
+    unwrap_underscore,
 )
-
-
-def unparse(node: Node) -> str:
-    tree = to_builtin(node)
-    tree = ast.fix_missing_locations(tree)
-    return ast.unparse(tree)
-
-
-def parse(text: str) -> Node:
-    tree = ast.parse(text)
-    return from_builtin(tree)
+from . import utils
 
 
 class Node:
     pass
 
 
-def to_builtin(node: Node):
-    assert isinstance(node, Node)
-    return node._to_builtin()
-
-
-def from_builtin(node: ast.AST) -> Node:
-    assert isinstance(node, ast.AST)
-    t = node.__class__.__name__
-    return NODES[t]._from_builtin(node)
-
-
-def transform(node: Node, fn) -> Node:
-    assert isinstance(node, Node)
-    return node._transform(fn, TransformerContext())
-
-
-@attrs.define
-class TransformerContext:
-    parents: Sequence[Node] = attrs.field(factory=list)
-
-
-class FreeUnderscore:
-    def __getattr__(self, name):
-        return BoundUnderscore(Name(id=name))
-
-    def __call__(self, name, *attrs):
-        ret = Name(id=name)
-        for name in reversed(attrs):
-            ret = Attribute(value=ret, attr=name)
-        return BoundUnderscore(ret)
-
-    def __getitem__(self, key):
-        return Constant(key)
-
-
-_ = FreeUnderscore()
-
-
-class BoundUnderscore(object):
-    def __repr__(self):
-        return f"BoundUnderscore({self.__inner__})"
-
-    def __init__(self, inner):
-        assert isinstance(inner, expr)
-        self.__inner__ = inner
-
-    def __getattr__(self, name):
-        return BoundUnderscore(Attribute(value=self.__inner__, attr=name))
-
-    def __call__(self, *args, **kwargs):
-        return BoundUnderscore(
-            Call(
-                func=self.__inner__,
-                args=args,
-                keywords=[keyword(value=v, arg=k) for k, v in kwargs.items()],
-            )
-        )
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            key = slice(lower=key.start, upper=key.stop, step=key.step)
-        return BoundUnderscore(Subscript(slice=key, value=self.__inner__))
-
-    def __bool__(self):
-        raise Exception("Chained comparasions???")
-
-    @property
-    def _(self):
-        return self.__inner__
-
-    def __add__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Add(), right=other))
-
-    def __sub__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Sub(), right=other))
-
-    def __truediv__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Div(), right=other))
-
-    def __floordiv__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=FloorDiv(), right=other))
-
-    def __mod__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Mod(), right=other))
-
-    def __mul__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Mult(), right=other))
-
-    def __matmul__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=MatMult(), right=other))
-
-    def __pow__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=Pow(), right=other))
-
-    def __lshift__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=LShift(), right=other))
-
-    def __rshift__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=RShift(), right=other))
-
-    def __and__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=And(), right=other))
-
-    def __xor__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=BitXor(), right=other))
-
-    def __or__(self, other):
-        return BoundUnderscore(BinOp(left=self, op=BitOr(), right=other))
-
-    def __neg__(self):
-        return UnaryOp(op=USub(), operand=self)
-
-    def __pos__(self):
-        return UnaryOp(op=Invert(), operand=self)
-
-    def __lt__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[Lt()]))
-
-    def __le__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[Le()]))
-
-    def __gt__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[Gt()]))
-
-    def __ge__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[Ge()]))
-
-    def __eq__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[Eq()]))
-
-    def __ne__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[NotEq()]))
-
-    def __contains__(self, other):
-        return BoundUnderscore(Compare(left=self, comparators=[other], ops=[In()]))
-
-
 class mod(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class Module(mod):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    type_ignores: Sequence[Union[type_ignore, TemplateVariable]] = attrs.field(
+    type_ignores: Sequence[type_ignore] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (type_ignore, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: type_ignore)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -186,18 +39,18 @@ class Module(mod):
 
     def _to_builtin(self):
         return ast.Module(
-            body=[to_builtin(x) for x in self.body],
-            type_ignores=[to_builtin(x) for x in self.type_ignores],
+            body=[utils.to_builtin(x) for x in self.body],
+            type_ignores=[utils.to_builtin(x) for x in self.type_ignores],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[from_builtin(x) for x in node.body],
-            type_ignores=[from_builtin(x) for x in node.type_ignores],
+            body=[utils.from_builtin(x) for x in node.body],
+            type_ignores=[utils.from_builtin(x) for x in node.type_ignores],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Module(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -217,24 +70,24 @@ class Module(mod):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Interactive(mod):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.Interactive(body=[to_builtin(x) for x in self.body])
+        return ast.Interactive(body=[utils.to_builtin(x) for x in self.body])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(body=[from_builtin(x) for x in node.body])
+        return cls(body=[utils.from_builtin(x) for x in node.body])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Interactive(
             body=[x._transform(node_transformer, inner_context) for x in self.body]
@@ -248,21 +101,20 @@ class Interactive(mod):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Expression(mod):
-    body: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    body: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Expression(body=to_builtin(self.body))
+        return ast.Expression(body=utils.to_builtin(self.body))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(body=from_builtin(node.body))
+        return cls(body=utils.from_builtin(node.body))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Expression(
             body=self.body._transform(node_transformer, inner_context)
@@ -271,18 +123,17 @@ class Expression(mod):
 
     def _children(self):
         yield self
-        yield from self.body._children()
+        yield from self.body()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class FunctionType(mod):
-    returns: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    returns: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    argtypes: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    argtypes: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -290,18 +141,18 @@ class FunctionType(mod):
 
     def _to_builtin(self):
         return ast.FunctionType(
-            returns=to_builtin(self.returns),
-            argtypes=[to_builtin(x) for x in self.argtypes],
+            returns=utils.to_builtin(self.returns),
+            argtypes=[utils.to_builtin(x) for x in self.argtypes],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            returns=from_builtin(node.returns),
-            argtypes=[from_builtin(x) for x in node.argtypes],
+            returns=utils.from_builtin(node.returns),
+            argtypes=[utils.from_builtin(x) for x in node.argtypes],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = FunctionType(
             returns=self.returns._transform(node_transformer, inner_context),
@@ -313,7 +164,7 @@ class FunctionType(mod):
 
     def _children(self):
         yield self
-        yield from self.returns._children()
+        yield from self.returns()._children()
         for x in self.argtypes:
             if x is not None:
                 yield from x._children()
@@ -323,31 +174,29 @@ class stmt(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class FunctionDef(stmt):
-    args: Union[arguments, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (arguments, TemplateVariable)),
+    args: arguments = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: arguments),
         converter=unwrap_underscore,
     )
     name: str = attrs.field(converter=convert_identifier)
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    decorator_list: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    returns: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    returns: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
@@ -359,26 +208,26 @@ class FunctionDef(stmt):
 
     def _to_builtin(self):
         return ast.FunctionDef(
-            args=to_builtin(self.args),
+            args=utils.to_builtin(self.args),
             name=self.name,
-            body=[to_builtin(x) for x in self.body],
-            decorator_list=[to_builtin(x) for x in self.decorator_list],
-            returns=None if self.returns is None else to_builtin(self.returns),
+            body=[utils.to_builtin(x) for x in self.body],
+            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
+            returns=None if self.returns is None else utils.to_builtin(self.returns),
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=from_builtin(node.args),
+            args=utils.from_builtin(node.args),
             name=node.name,
-            body=[from_builtin(x) for x in node.body],
-            decorator_list=[from_builtin(x) for x in node.decorator_list],
-            returns=None if node.returns is None else from_builtin(node.returns),
+            body=[utils.from_builtin(x) for x in node.body],
+            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
+            returns=None if node.returns is None else utils.from_builtin(node.returns),
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = FunctionDef(
             args=self.args._transform(node_transformer, inner_context),
@@ -397,7 +246,7 @@ class FunctionDef(stmt):
 
     def _children(self):
         yield self
-        yield from self.args._children()
+        yield from self.args()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -405,34 +254,32 @@ class FunctionDef(stmt):
             if x is not None:
                 yield from x._children()
         if self.returns is not None:
-            yield from self.returns._children()
+            yield from self.returns()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class AsyncFunctionDef(stmt):
-    args: Union[arguments, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (arguments, TemplateVariable)),
+    args: arguments = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: arguments),
         converter=unwrap_underscore,
     )
     name: str = attrs.field(converter=convert_identifier)
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    decorator_list: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    returns: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    returns: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
@@ -444,26 +291,26 @@ class AsyncFunctionDef(stmt):
 
     def _to_builtin(self):
         return ast.AsyncFunctionDef(
-            args=to_builtin(self.args),
+            args=utils.to_builtin(self.args),
             name=self.name,
-            body=[to_builtin(x) for x in self.body],
-            decorator_list=[to_builtin(x) for x in self.decorator_list],
-            returns=None if self.returns is None else to_builtin(self.returns),
+            body=[utils.to_builtin(x) for x in self.body],
+            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
+            returns=None if self.returns is None else utils.to_builtin(self.returns),
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=from_builtin(node.args),
+            args=utils.from_builtin(node.args),
             name=node.name,
-            body=[from_builtin(x) for x in node.body],
-            decorator_list=[from_builtin(x) for x in node.decorator_list],
-            returns=None if node.returns is None else from_builtin(node.returns),
+            body=[utils.from_builtin(x) for x in node.body],
+            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
+            returns=None if node.returns is None else utils.from_builtin(node.returns),
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = AsyncFunctionDef(
             args=self.args._transform(node_transformer, inner_context),
@@ -482,7 +329,7 @@ class AsyncFunctionDef(stmt):
 
     def _children(self):
         yield self
-        yield from self.args._children()
+        yield from self.args()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -490,36 +337,36 @@ class AsyncFunctionDef(stmt):
             if x is not None:
                 yield from x._children()
         if self.returns is not None:
-            yield from self.returns._children()
+            yield from self.returns()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class ClassDef(stmt):
     name: str = attrs.field(converter=convert_identifier)
-    bases: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    bases: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    decorator_list: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    keywords: Sequence[Union[keyword, TemplateVariable]] = attrs.field(
+    keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (keyword, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: keyword)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -528,23 +375,23 @@ class ClassDef(stmt):
     def _to_builtin(self):
         return ast.ClassDef(
             name=self.name,
-            bases=[to_builtin(x) for x in self.bases],
-            body=[to_builtin(x) for x in self.body],
-            decorator_list=[to_builtin(x) for x in self.decorator_list],
-            keywords=[to_builtin(x) for x in self.keywords],
+            bases=[utils.to_builtin(x) for x in self.bases],
+            body=[utils.to_builtin(x) for x in self.body],
+            decorator_list=[utils.to_builtin(x) for x in self.decorator_list],
+            keywords=[utils.to_builtin(x) for x in self.keywords],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             name=node.name,
-            bases=[from_builtin(x) for x in node.bases],
-            body=[from_builtin(x) for x in node.body],
-            decorator_list=[from_builtin(x) for x in node.decorator_list],
-            keywords=[from_builtin(x) for x in node.keywords],
+            bases=[utils.from_builtin(x) for x in node.bases],
+            body=[utils.from_builtin(x) for x in node.body],
+            decorator_list=[utils.from_builtin(x) for x in node.decorator_list],
+            keywords=[utils.from_builtin(x) for x in node.keywords],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = ClassDef(
             name=self.name,
@@ -576,24 +423,24 @@ class ClassDef(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Return(stmt):
-    value: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
-        return ast.Return(value=None if self.value is None else to_builtin(self.value))
+        return ast.Return(
+            value=None if self.value is None else utils.to_builtin(self.value)
+        )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=None if node.value is None else from_builtin(node.value))
+        return cls(value=None if node.value is None else utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Return(
             value=None
@@ -605,27 +452,27 @@ class Return(stmt):
     def _children(self):
         yield self
         if self.value is not None:
-            yield from self.value._children()
+            yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Delete(stmt):
-    targets: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    targets: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.Delete(targets=[to_builtin(x) for x in self.targets])
+        return ast.Delete(targets=[utils.to_builtin(x) for x in self.targets])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(targets=[from_builtin(x) for x in node.targets])
+        return cls(targets=[utils.from_builtin(x) for x in node.targets])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Delete(
             targets=[
@@ -641,15 +488,14 @@ class Delete(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Assign(stmt):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    targets: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    targets: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -662,20 +508,20 @@ class Assign(stmt):
 
     def _to_builtin(self):
         return ast.Assign(
-            value=to_builtin(self.value),
-            targets=[to_builtin(x) for x in self.targets],
+            value=utils.to_builtin(self.value),
+            targets=[utils.to_builtin(x) for x in self.targets],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            value=from_builtin(node.value),
-            targets=[from_builtin(x) for x in node.targets],
+            value=utils.from_builtin(node.value),
+            targets=[utils.from_builtin(x) for x in node.targets],
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Assign(
             value=self.value._transform(node_transformer, inner_context),
@@ -688,43 +534,41 @@ class Assign(stmt):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
         for x in self.targets:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class AugAssign(stmt):
-    op: Union[operator, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (operator, TemplateVariable)),
+    op: operator = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: operator),
         converter=unwrap_underscore,
     )
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
         return ast.AugAssign(
-            op=to_builtin(self.op),
-            target=to_builtin(self.target),
-            value=to_builtin(self.value),
+            op=utils.to_builtin(self.op),
+            target=utils.to_builtin(self.target),
+            value=utils.to_builtin(self.value),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            op=from_builtin(node.op),
-            target=from_builtin(node.target),
-            value=from_builtin(node.value),
+            op=utils.from_builtin(node.op),
+            target=utils.from_builtin(node.target),
+            value=utils.from_builtin(node.value),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = AugAssign(
             op=self.op._transform(node_transformer, inner_context),
@@ -735,48 +579,44 @@ class AugAssign(stmt):
 
     def _children(self):
         yield self
-        yield from self.op._children()
-        yield from self.target._children()
-        yield from self.value._children()
+        yield from self.op()._children()
+        yield from self.target()._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class AnnAssign(stmt):
-    annotation: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    annotation: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
     simple: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    value: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.AnnAssign(
-            annotation=to_builtin(self.annotation),
+            annotation=utils.to_builtin(self.annotation),
             simple=self.simple,
-            target=to_builtin(self.target),
-            value=None if self.value is None else to_builtin(self.value),
+            target=utils.to_builtin(self.target),
+            value=None if self.value is None else utils.to_builtin(self.value),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            annotation=from_builtin(node.annotation),
+            annotation=utils.from_builtin(node.annotation),
             simple=node.simple,
-            target=from_builtin(node.target),
-            value=None if node.value is None else from_builtin(node.value),
+            target=utils.from_builtin(node.target),
+            value=None if node.value is None else utils.from_builtin(node.value),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = AnnAssign(
             annotation=self.annotation._transform(node_transformer, inner_context),
@@ -790,32 +630,30 @@ class AnnAssign(stmt):
 
     def _children(self):
         yield self
-        yield from self.annotation._children()
-        yield from self.target._children()
+        yield from self.annotation()._children()
+        yield from self.target()._children()
         if self.value is not None:
-            yield from self.value._children()
+            yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class For(stmt):
-    iter: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    iter: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    orelse: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -828,24 +666,24 @@ class For(stmt):
 
     def _to_builtin(self):
         return ast.For(
-            iter=to_builtin(self.iter),
-            target=to_builtin(self.target),
-            body=[to_builtin(x) for x in self.body],
-            orelse=[to_builtin(x) for x in self.orelse],
+            iter=utils.to_builtin(self.iter),
+            target=utils.to_builtin(self.target),
+            body=[utils.to_builtin(x) for x in self.body],
+            orelse=[utils.to_builtin(x) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            iter=from_builtin(node.iter),
-            target=from_builtin(node.target),
-            body=[from_builtin(x) for x in node.body],
-            orelse=[from_builtin(x) for x in node.orelse],
+            iter=utils.from_builtin(node.iter),
+            target=utils.from_builtin(node.target),
+            body=[utils.from_builtin(x) for x in node.body],
+            orelse=[utils.from_builtin(x) for x in node.orelse],
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = For(
             iter=self.iter._transform(node_transformer, inner_context),
@@ -858,8 +696,8 @@ class For(stmt):
 
     def _children(self):
         yield self
-        yield from self.iter._children()
-        yield from self.target._children()
+        yield from self.iter()._children()
+        yield from self.target()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -868,26 +706,24 @@ class For(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class AsyncFor(stmt):
-    iter: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    iter: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    orelse: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -900,24 +736,24 @@ class AsyncFor(stmt):
 
     def _to_builtin(self):
         return ast.AsyncFor(
-            iter=to_builtin(self.iter),
-            target=to_builtin(self.target),
-            body=[to_builtin(x) for x in self.body],
-            orelse=[to_builtin(x) for x in self.orelse],
+            iter=utils.to_builtin(self.iter),
+            target=utils.to_builtin(self.target),
+            body=[utils.to_builtin(x) for x in self.body],
+            orelse=[utils.to_builtin(x) for x in self.orelse],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            iter=from_builtin(node.iter),
-            target=from_builtin(node.target),
-            body=[from_builtin(x) for x in node.body],
-            orelse=[from_builtin(x) for x in node.orelse],
+            iter=utils.from_builtin(node.iter),
+            target=utils.from_builtin(node.target),
+            body=[utils.from_builtin(x) for x in node.body],
+            orelse=[utils.from_builtin(x) for x in node.orelse],
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = AsyncFor(
             iter=self.iter._transform(node_transformer, inner_context),
@@ -930,8 +766,8 @@ class AsyncFor(stmt):
 
     def _children(self):
         yield self
-        yield from self.iter._children()
-        yield from self.target._children()
+        yield from self.iter()._children()
+        yield from self.target()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -940,22 +776,21 @@ class AsyncFor(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class While(stmt):
-    test: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    test: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    orelse: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -963,20 +798,20 @@ class While(stmt):
 
     def _to_builtin(self):
         return ast.While(
-            test=to_builtin(self.test),
-            body=[to_builtin(x) for x in self.body],
-            orelse=[to_builtin(x) for x in self.orelse],
+            test=utils.to_builtin(self.test),
+            body=[utils.to_builtin(x) for x in self.body],
+            orelse=[utils.to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=from_builtin(node.test),
-            body=[from_builtin(x) for x in node.body],
-            orelse=[from_builtin(x) for x in node.orelse],
+            test=utils.from_builtin(node.test),
+            body=[utils.from_builtin(x) for x in node.body],
+            orelse=[utils.from_builtin(x) for x in node.orelse],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = While(
             test=self.test._transform(node_transformer, inner_context),
@@ -987,7 +822,7 @@ class While(stmt):
 
     def _children(self):
         yield self
-        yield from self.test._children()
+        yield from self.test()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -996,22 +831,21 @@ class While(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class If(stmt):
-    test: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    test: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    orelse: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1019,20 +853,20 @@ class If(stmt):
 
     def _to_builtin(self):
         return ast.If(
-            test=to_builtin(self.test),
-            body=[to_builtin(x) for x in self.body],
-            orelse=[to_builtin(x) for x in self.orelse],
+            test=utils.to_builtin(self.test),
+            body=[utils.to_builtin(x) for x in self.body],
+            orelse=[utils.to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=from_builtin(node.test),
-            body=[from_builtin(x) for x in node.body],
-            orelse=[from_builtin(x) for x in node.orelse],
+            test=utils.from_builtin(node.test),
+            body=[utils.from_builtin(x) for x in node.body],
+            orelse=[utils.from_builtin(x) for x in node.orelse],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = If(
             test=self.test._transform(node_transformer, inner_context),
@@ -1043,7 +877,7 @@ class If(stmt):
 
     def _children(self):
         yield self
-        yield from self.test._children()
+        yield from self.test()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
@@ -1052,18 +886,18 @@ class If(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class With(stmt):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    items: Sequence[Union[withitem, TemplateVariable]] = attrs.field(
+    items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (withitem, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: withitem)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1076,20 +910,20 @@ class With(stmt):
 
     def _to_builtin(self):
         return ast.With(
-            body=[to_builtin(x) for x in self.body],
-            items=[to_builtin(x) for x in self.items],
+            body=[utils.to_builtin(x) for x in self.body],
+            items=[utils.to_builtin(x) for x in self.items],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[from_builtin(x) for x in node.body],
-            items=[from_builtin(x) for x in node.items],
+            body=[utils.from_builtin(x) for x in node.body],
+            items=[utils.from_builtin(x) for x in node.items],
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = With(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -1108,18 +942,18 @@ class With(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class AsyncWith(stmt):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    items: Sequence[Union[withitem, TemplateVariable]] = attrs.field(
+    items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (withitem, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: withitem)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1132,20 +966,20 @@ class AsyncWith(stmt):
 
     def _to_builtin(self):
         return ast.AsyncWith(
-            body=[to_builtin(x) for x in self.body],
-            items=[to_builtin(x) for x in self.items],
+            body=[utils.to_builtin(x) for x in self.body],
+            items=[utils.to_builtin(x) for x in self.items],
             type_comment=self.type_comment,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[from_builtin(x) for x in node.body],
-            items=[from_builtin(x) for x in node.items],
+            body=[utils.from_builtin(x) for x in node.body],
+            items=[utils.from_builtin(x) for x in node.items],
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = AsyncWith(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -1164,15 +998,14 @@ class AsyncWith(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Match(stmt):
-    subject: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    subject: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    cases: Sequence[Union[match_case, TemplateVariable]] = attrs.field(
+    cases: Sequence[match_case] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (match_case, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: match_case)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1180,17 +1013,18 @@ class Match(stmt):
 
     def _to_builtin(self):
         return ast.Match(
-            subject=to_builtin(self.subject), cases=[to_builtin(x) for x in self.cases]
+            subject=utils.to_builtin(self.subject),
+            cases=[utils.to_builtin(x) for x in self.cases],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            subject=from_builtin(node.subject),
-            cases=[from_builtin(x) for x in node.cases],
+            subject=utils.from_builtin(node.subject),
+            cases=[utils.from_builtin(x) for x in node.cases],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Match(
             subject=self.subject._transform(node_transformer, inner_context),
@@ -1200,43 +1034,39 @@ class Match(stmt):
 
     def _children(self):
         yield self
-        yield from self.subject._children()
+        yield from self.subject()._children()
         for x in self.cases:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Raise(stmt):
-    cause: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    cause: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
-    exc: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    exc: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.Raise(
-            cause=None if self.cause is None else to_builtin(self.cause),
-            exc=None if self.exc is None else to_builtin(self.exc),
+            cause=None if self.cause is None else utils.to_builtin(self.cause),
+            exc=None if self.exc is None else utils.to_builtin(self.exc),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            cause=None if node.cause is None else from_builtin(node.cause),
-            exc=None if node.exc is None else from_builtin(node.exc),
+            cause=None if node.cause is None else utils.from_builtin(node.cause),
+            exc=None if node.exc is None else utils.from_builtin(node.exc),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Raise(
             cause=None
@@ -1251,37 +1081,37 @@ class Raise(stmt):
     def _children(self):
         yield self
         if self.cause is not None:
-            yield from self.cause._children()
+            yield from self.cause()._children()
         if self.exc is not None:
-            yield from self.exc._children()
+            yield from self.exc()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Try(stmt):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    finalbody: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    finalbody: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    handlers: Sequence[Union[excepthandler, TemplateVariable]] = attrs.field(
+    handlers: Sequence[excepthandler] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (excepthandler, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: excepthandler)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    orelse: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1289,22 +1119,22 @@ class Try(stmt):
 
     def _to_builtin(self):
         return ast.Try(
-            body=[to_builtin(x) for x in self.body],
-            finalbody=[to_builtin(x) for x in self.finalbody],
-            handlers=[to_builtin(x) for x in self.handlers],
-            orelse=[to_builtin(x) for x in self.orelse],
+            body=[utils.to_builtin(x) for x in self.body],
+            finalbody=[utils.to_builtin(x) for x in self.finalbody],
+            handlers=[utils.to_builtin(x) for x in self.handlers],
+            orelse=[utils.to_builtin(x) for x in self.orelse],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[from_builtin(x) for x in node.body],
-            finalbody=[from_builtin(x) for x in node.finalbody],
-            handlers=[from_builtin(x) for x in node.handlers],
-            orelse=[from_builtin(x) for x in node.orelse],
+            body=[utils.from_builtin(x) for x in node.body],
+            finalbody=[utils.from_builtin(x) for x in node.finalbody],
+            handlers=[utils.from_builtin(x) for x in node.handlers],
+            orelse=[utils.from_builtin(x) for x in node.orelse],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Try(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -1334,34 +1164,31 @@ class Try(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Assert(stmt):
-    test: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    test: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    msg: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    msg: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.Assert(
-            test=to_builtin(self.test),
-            msg=None if self.msg is None else to_builtin(self.msg),
+            test=utils.to_builtin(self.test),
+            msg=None if self.msg is None else utils.to_builtin(self.msg),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            test=from_builtin(node.test),
-            msg=None if node.msg is None else from_builtin(node.msg),
+            test=utils.from_builtin(node.test),
+            msg=None if node.msg is None else utils.from_builtin(node.msg),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Assert(
             test=self.test._transform(node_transformer, inner_context),
@@ -1373,29 +1200,29 @@ class Assert(stmt):
 
     def _children(self):
         yield self
-        yield from self.test._children()
+        yield from self.test()._children()
         if self.msg is not None:
-            yield from self.msg._children()
+            yield from self.msg()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Import(stmt):
-    names: Sequence[Union[alias, TemplateVariable]] = attrs.field(
+    names: Sequence[alias] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (alias, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: alias)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.Import(names=[to_builtin(x) for x in self.names])
+        return ast.Import(names=[utils.to_builtin(x) for x in self.names])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(names=[from_builtin(x) for x in node.names])
+        return cls(names=[utils.from_builtin(x) for x in node.names])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Import(
             names=[x._transform(node_transformer, inner_context) for x in self.names]
@@ -1409,7 +1236,7 @@ class Import(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class ImportFrom(stmt):
     level: Optional[int] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
@@ -1418,9 +1245,9 @@ class ImportFrom(stmt):
     module: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
     )
-    names: Sequence[Union[alias, TemplateVariable]] = attrs.field(
+    names: Sequence[alias] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (alias, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: alias)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1430,7 +1257,7 @@ class ImportFrom(stmt):
         return ast.ImportFrom(
             level=self.level,
             module=self.module,
-            names=[to_builtin(x) for x in self.names],
+            names=[utils.to_builtin(x) for x in self.names],
         )
 
     @classmethod
@@ -1438,10 +1265,10 @@ class ImportFrom(stmt):
         return cls(
             level=node.level,
             module=node.module,
-            names=[from_builtin(x) for x in node.names],
+            names=[utils.from_builtin(x) for x in node.names],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = ImportFrom(
             level=self.level,
@@ -1457,7 +1284,7 @@ class ImportFrom(stmt):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Global(stmt):
     names: Sequence[str] = attrs.field(
         converter=DeepIterableConverter(convert_identifier), factory=list
@@ -1470,7 +1297,7 @@ class Global(stmt):
     def _from_builtin(cls, node):
         return cls(names=node.names)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Global(names=self.names)
         return node_transformer(transformed, context)
@@ -1479,7 +1306,7 @@ class Global(stmt):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Nonlocal(stmt):
     names: Sequence[str] = attrs.field(
         converter=DeepIterableConverter(convert_identifier), factory=list
@@ -1492,7 +1319,7 @@ class Nonlocal(stmt):
     def _from_builtin(cls, node):
         return cls(names=node.names)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Nonlocal(names=self.names)
         return node_transformer(transformed, context)
@@ -1501,31 +1328,30 @@ class Nonlocal(stmt):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Expr(stmt):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Expr(value=to_builtin(self.value))
+        return ast.Expr(value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value))
+        return cls(value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Expr(value=self.value._transform(node_transformer, inner_context))
         return node_transformer(transformed, context)
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Pass(stmt):
     def _to_builtin(self):
         return ast.Pass()
@@ -1534,7 +1360,7 @@ class Pass(stmt):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Pass()
         return node_transformer(transformed, context)
@@ -1543,7 +1369,7 @@ class Pass(stmt):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Break(stmt):
     def _to_builtin(self):
         return ast.Break()
@@ -1552,7 +1378,7 @@ class Break(stmt):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Break()
         return node_transformer(transformed, context)
@@ -1561,7 +1387,7 @@ class Break(stmt):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Continue(stmt):
     def _to_builtin(self):
         return ast.Continue()
@@ -1570,7 +1396,7 @@ class Continue(stmt):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Continue()
         return node_transformer(transformed, context)
@@ -1580,22 +1406,17 @@ class Continue(stmt):
 
 
 class expr(Node):
-    def __call__(self, *attrs):
-        ret = self
-        for name in reversed(attrs):
-            ret = Attribute(value=ret, attr=name)
-        return BoundUnderscore(ret)
+    pass
 
 
-@attrs.define()
+@attrs.frozen()
 class BoolOp(expr):
-    op: Union[boolop, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (boolop, TemplateVariable)),
-        converter=unwrap_underscore,
+    op: boolop = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: boolop), converter=unwrap_underscore
     )
-    values: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1603,16 +1424,18 @@ class BoolOp(expr):
 
     def _to_builtin(self):
         return ast.BoolOp(
-            op=to_builtin(self.op), values=[to_builtin(x) for x in self.values]
+            op=utils.to_builtin(self.op),
+            values=[utils.to_builtin(x) for x in self.values],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            op=from_builtin(node.op), values=[from_builtin(x) for x in node.values]
+            op=utils.from_builtin(node.op),
+            values=[utils.from_builtin(x) for x in node.values],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = BoolOp(
             op=self.op._transform(node_transformer, inner_context),
@@ -1622,33 +1445,33 @@ class BoolOp(expr):
 
     def _children(self):
         yield self
-        yield from self.op._children()
+        yield from self.op()._children()
         for x in self.values:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class NamedExpr(expr):
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
         return ast.NamedExpr(
-            target=to_builtin(self.target), value=to_builtin(self.value)
+            target=utils.to_builtin(self.target), value=utils.to_builtin(self.value)
         )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(target=from_builtin(node.target), value=from_builtin(node.value))
+        return cls(
+            target=utils.from_builtin(node.target), value=utils.from_builtin(node.value)
+        )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = NamedExpr(
             target=self.target._transform(node_transformer, inner_context),
@@ -1658,41 +1481,39 @@ class NamedExpr(expr):
 
     def _children(self):
         yield self
-        yield from self.target._children()
-        yield from self.value._children()
+        yield from self.target()._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class BinOp(expr):
-    left: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
+    left: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+    )
+    op: operator = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: operator),
         converter=unwrap_underscore,
     )
-    op: Union[operator, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (operator, TemplateVariable)),
-        converter=unwrap_underscore,
-    )
-    right: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    right: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
         return ast.BinOp(
-            left=to_builtin(self.left),
-            op=to_builtin(self.op),
-            right=to_builtin(self.right),
+            left=utils.to_builtin(self.left),
+            op=utils.to_builtin(self.op),
+            right=utils.to_builtin(self.right),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            left=from_builtin(node.left),
-            op=from_builtin(node.op),
-            right=from_builtin(node.right),
+            left=utils.from_builtin(node.left),
+            op=utils.from_builtin(node.op),
+            right=utils.from_builtin(node.right),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = BinOp(
             left=self.left._transform(node_transformer, inner_context),
@@ -1703,30 +1524,32 @@ class BinOp(expr):
 
     def _children(self):
         yield self
-        yield from self.left._children()
-        yield from self.op._children()
-        yield from self.right._children()
+        yield from self.left()._children()
+        yield from self.op()._children()
+        yield from self.right()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class UnaryOp(expr):
-    op: Union[unaryop, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (unaryop, TemplateVariable)),
-        converter=unwrap_underscore,
+    op: unaryop = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: unaryop), converter=unwrap_underscore
     )
-    operand: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    operand: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.UnaryOp(op=to_builtin(self.op), operand=to_builtin(self.operand))
+        return ast.UnaryOp(
+            op=utils.to_builtin(self.op), operand=utils.to_builtin(self.operand)
+        )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(op=from_builtin(node.op), operand=from_builtin(node.operand))
+        return cls(
+            op=utils.from_builtin(node.op), operand=utils.from_builtin(node.operand)
+        )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = UnaryOp(
             op=self.op._transform(node_transformer, inner_context),
@@ -1736,29 +1559,32 @@ class UnaryOp(expr):
 
     def _children(self):
         yield self
-        yield from self.op._children()
-        yield from self.operand._children()
+        yield from self.op()._children()
+        yield from self.operand()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Lambda(expr):
-    args: Union[arguments, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (arguments, TemplateVariable)),
+    args: arguments = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: arguments),
         converter=unwrap_underscore,
     )
-    body: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    body: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Lambda(args=to_builtin(self.args), body=to_builtin(self.body))
+        return ast.Lambda(
+            args=utils.to_builtin(self.args), body=utils.to_builtin(self.body)
+        )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(args=from_builtin(node.args), body=from_builtin(node.body))
+        return cls(
+            args=utils.from_builtin(node.args), body=utils.from_builtin(node.body)
+        )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Lambda(
             args=self.args._transform(node_transformer, inner_context),
@@ -1768,41 +1594,38 @@ class Lambda(expr):
 
     def _children(self):
         yield self
-        yield from self.args._children()
-        yield from self.body._children()
+        yield from self.args()._children()
+        yield from self.body()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class IfExp(expr):
-    body: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    body: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    orelse: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    orelse: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    test: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    test: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
         return ast.IfExp(
-            body=to_builtin(self.body),
-            orelse=to_builtin(self.orelse),
-            test=to_builtin(self.test),
+            body=utils.to_builtin(self.body),
+            orelse=utils.to_builtin(self.orelse),
+            test=utils.to_builtin(self.test),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=from_builtin(node.body),
-            orelse=from_builtin(node.orelse),
-            test=from_builtin(node.test),
+            body=utils.from_builtin(node.body),
+            orelse=utils.from_builtin(node.orelse),
+            test=utils.from_builtin(node.test),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = IfExp(
             body=self.body._transform(node_transformer, inner_context),
@@ -1813,23 +1636,23 @@ class IfExp(expr):
 
     def _children(self):
         yield self
-        yield from self.body._children()
-        yield from self.orelse._children()
-        yield from self.test._children()
+        yield from self.body()._children()
+        yield from self.orelse()._children()
+        yield from self.test()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Dict(expr):
-    keys: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    keys: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    values: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1837,18 +1660,18 @@ class Dict(expr):
 
     def _to_builtin(self):
         return ast.Dict(
-            keys=[to_builtin(x) for x in self.keys],
-            values=[to_builtin(x) for x in self.values],
+            keys=[utils.to_builtin(x) for x in self.keys],
+            values=[utils.to_builtin(x) for x in self.values],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            keys=[from_builtin(x) for x in node.keys],
-            values=[from_builtin(x) for x in node.values],
+            keys=[utils.from_builtin(x) for x in node.keys],
+            values=[utils.from_builtin(x) for x in node.values],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Dict(
             keys=[x._transform(node_transformer, inner_context) for x in self.keys],
@@ -1866,24 +1689,24 @@ class Dict(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Set(expr):
-    elts: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.Set(elts=[to_builtin(x) for x in self.elts])
+        return ast.Set(elts=[utils.to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[from_builtin(x) for x in node.elts])
+        return cls(elts=[utils.from_builtin(x) for x in node.elts])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Set(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
@@ -1897,15 +1720,14 @@ class Set(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class ListComp(expr):
-    elt: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    elt: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    generators: Sequence[Union[comprehension, TemplateVariable]] = attrs.field(
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (comprehension, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: comprehension)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1913,18 +1735,18 @@ class ListComp(expr):
 
     def _to_builtin(self):
         return ast.ListComp(
-            elt=to_builtin(self.elt),
-            generators=[to_builtin(x) for x in self.generators],
+            elt=utils.to_builtin(self.elt),
+            generators=[utils.to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=from_builtin(node.elt),
-            generators=[from_builtin(x) for x in node.generators],
+            elt=utils.from_builtin(node.elt),
+            generators=[utils.from_builtin(x) for x in node.generators],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = ListComp(
             elt=self.elt._transform(node_transformer, inner_context),
@@ -1936,21 +1758,20 @@ class ListComp(expr):
 
     def _children(self):
         yield self
-        yield from self.elt._children()
+        yield from self.elt()._children()
         for x in self.generators:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class SetComp(expr):
-    elt: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    elt: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    generators: Sequence[Union[comprehension, TemplateVariable]] = attrs.field(
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (comprehension, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: comprehension)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -1958,18 +1779,18 @@ class SetComp(expr):
 
     def _to_builtin(self):
         return ast.SetComp(
-            elt=to_builtin(self.elt),
-            generators=[to_builtin(x) for x in self.generators],
+            elt=utils.to_builtin(self.elt),
+            generators=[utils.to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=from_builtin(node.elt),
-            generators=[from_builtin(x) for x in node.generators],
+            elt=utils.from_builtin(node.elt),
+            generators=[utils.from_builtin(x) for x in node.generators],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = SetComp(
             elt=self.elt._transform(node_transformer, inner_context),
@@ -1981,25 +1802,23 @@ class SetComp(expr):
 
     def _children(self):
         yield self
-        yield from self.elt._children()
+        yield from self.elt()._children()
         for x in self.generators:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class DictComp(expr):
-    key: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    key: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    generators: Sequence[Union[comprehension, TemplateVariable]] = attrs.field(
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (comprehension, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: comprehension)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -2007,20 +1826,20 @@ class DictComp(expr):
 
     def _to_builtin(self):
         return ast.DictComp(
-            key=to_builtin(self.key),
-            value=to_builtin(self.value),
-            generators=[to_builtin(x) for x in self.generators],
+            key=utils.to_builtin(self.key),
+            value=utils.to_builtin(self.value),
+            generators=[utils.to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            key=from_builtin(node.key),
-            value=from_builtin(node.value),
-            generators=[from_builtin(x) for x in node.generators],
+            key=utils.from_builtin(node.key),
+            value=utils.from_builtin(node.value),
+            generators=[utils.from_builtin(x) for x in node.generators],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = DictComp(
             key=self.key._transform(node_transformer, inner_context),
@@ -2033,22 +1852,21 @@ class DictComp(expr):
 
     def _children(self):
         yield self
-        yield from self.key._children()
-        yield from self.value._children()
+        yield from self.key()._children()
+        yield from self.value()._children()
         for x in self.generators:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class GeneratorExp(expr):
-    elt: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    elt: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    generators: Sequence[Union[comprehension, TemplateVariable]] = attrs.field(
+    generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (comprehension, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: comprehension)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -2056,18 +1874,18 @@ class GeneratorExp(expr):
 
     def _to_builtin(self):
         return ast.GeneratorExp(
-            elt=to_builtin(self.elt),
-            generators=[to_builtin(x) for x in self.generators],
+            elt=utils.to_builtin(self.elt),
+            generators=[utils.to_builtin(x) for x in self.generators],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            elt=from_builtin(node.elt),
-            generators=[from_builtin(x) for x in node.generators],
+            elt=utils.from_builtin(node.elt),
+            generators=[utils.from_builtin(x) for x in node.generators],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = GeneratorExp(
             elt=self.elt._transform(node_transformer, inner_context),
@@ -2079,27 +1897,26 @@ class GeneratorExp(expr):
 
     def _children(self):
         yield self
-        yield from self.elt._children()
+        yield from self.elt()._children()
         for x in self.generators:
             if x is not None:
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Await(expr):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Await(value=to_builtin(self.value))
+        return ast.Await(value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value))
+        return cls(value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Await(
             value=self.value._transform(node_transformer, inner_context)
@@ -2108,27 +1925,27 @@ class Await(expr):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Yield(expr):
-    value: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    value: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
-        return ast.Yield(value=None if self.value is None else to_builtin(self.value))
+        return ast.Yield(
+            value=None if self.value is None else utils.to_builtin(self.value)
+        )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=None if node.value is None else from_builtin(node.value))
+        return cls(value=None if node.value is None else utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Yield(
             value=None
@@ -2140,24 +1957,23 @@ class Yield(expr):
     def _children(self):
         yield self
         if self.value is not None:
-            yield from self.value._children()
+            yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class YieldFrom(expr):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.YieldFrom(value=to_builtin(self.value))
+        return ast.YieldFrom(value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value))
+        return cls(value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = YieldFrom(
             value=self.value._transform(node_transformer, inner_context)
@@ -2166,25 +1982,24 @@ class YieldFrom(expr):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Compare(expr):
-    left: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    left: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    comparators: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    comparators: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    ops: Sequence[Union[cmpop, TemplateVariable]] = attrs.field(
+    ops: Sequence[cmpop] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (cmpop, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: cmpop)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -2192,20 +2007,20 @@ class Compare(expr):
 
     def _to_builtin(self):
         return ast.Compare(
-            left=to_builtin(self.left),
-            comparators=[to_builtin(x) for x in self.comparators],
-            ops=[to_builtin(x) for x in self.ops],
+            left=utils.to_builtin(self.left),
+            comparators=[utils.to_builtin(x) for x in self.comparators],
+            ops=[utils.to_builtin(x) for x in self.ops],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            left=from_builtin(node.left),
-            comparators=[from_builtin(x) for x in node.comparators],
-            ops=[from_builtin(x) for x in node.ops],
+            left=utils.from_builtin(node.left),
+            comparators=[utils.from_builtin(x) for x in node.comparators],
+            ops=[utils.from_builtin(x) for x in node.ops],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Compare(
             left=self.left._transform(node_transformer, inner_context),
@@ -2218,7 +2033,7 @@ class Compare(expr):
 
     def _children(self):
         yield self
-        yield from self.left._children()
+        yield from self.left()._children()
         for x in self.comparators:
             if x is not None:
                 yield from x._children()
@@ -2227,22 +2042,21 @@ class Compare(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Call(expr):
-    func: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    func: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    args: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    args: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    keywords: Sequence[Union[keyword, TemplateVariable]] = attrs.field(
+    keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (keyword, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: keyword)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -2250,20 +2064,20 @@ class Call(expr):
 
     def _to_builtin(self):
         return ast.Call(
-            func=to_builtin(self.func),
-            args=[to_builtin(x) for x in self.args],
-            keywords=[to_builtin(x) for x in self.keywords],
+            func=utils.to_builtin(self.func),
+            args=[utils.to_builtin(x) for x in self.args],
+            keywords=[utils.to_builtin(x) for x in self.keywords],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            func=from_builtin(node.func),
-            args=[from_builtin(x) for x in node.args],
-            keywords=[from_builtin(x) for x in node.keywords],
+            func=utils.from_builtin(node.func),
+            args=[utils.from_builtin(x) for x in node.args],
+            keywords=[utils.from_builtin(x) for x in node.keywords],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Call(
             func=self.func._transform(node_transformer, inner_context),
@@ -2276,7 +2090,7 @@ class Call(expr):
 
     def _children(self):
         yield self
-        yield from self.func._children()
+        yield from self.func()._children()
         for x in self.args:
             if x is not None:
                 yield from x._children()
@@ -2285,44 +2099,41 @@ class Call(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class FormattedValue(expr):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
     conversion: Optional[int] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
         default=None,
     )
-    format_spec: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    format_spec: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.FormattedValue(
-            value=to_builtin(self.value),
+            value=utils.to_builtin(self.value),
             conversion=self.conversion,
             format_spec=None
             if self.format_spec is None
-            else to_builtin(self.format_spec),
+            else utils.to_builtin(self.format_spec),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            value=from_builtin(node.value),
+            value=utils.from_builtin(node.value),
             conversion=node.conversion,
             format_spec=None
             if node.format_spec is None
-            else from_builtin(node.format_spec),
+            else utils.from_builtin(node.format_spec),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = FormattedValue(
             value=self.value._transform(node_transformer, inner_context),
@@ -2335,29 +2146,29 @@ class FormattedValue(expr):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
         if self.format_spec is not None:
-            yield from self.format_spec._children()
+            yield from self.format_spec()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class JoinedStr(expr):
-    values: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.JoinedStr(values=[to_builtin(x) for x in self.values])
+        return ast.JoinedStr(values=[utils.to_builtin(x) for x in self.values])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(values=[from_builtin(x) for x in node.values])
+        return cls(values=[utils.from_builtin(x) for x in node.values])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = JoinedStr(
             values=[x._transform(node_transformer, inner_context) for x in self.values]
@@ -2371,7 +2182,7 @@ class JoinedStr(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Constant(expr):
     value: Any = attrs.field()
     kind: Optional[str] = attrs.field(
@@ -2386,7 +2197,7 @@ class Constant(expr):
     def _from_builtin(cls, node):
         return cls(value=node.value, kind=node.kind)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Constant(value=self.value, kind=self.kind)
         return node_transformer(transformed, context)
@@ -2395,22 +2206,21 @@ class Constant(expr):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Attribute(expr):
     attr: str = attrs.field(converter=convert_identifier)
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Attribute(attr=self.attr, value=to_builtin(self.value))
+        return ast.Attribute(attr=self.attr, value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(attr=node.attr, value=from_builtin(node.value))
+        return cls(attr=node.attr, value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Attribute(
             attr=self.attr, value=self.value._transform(node_transformer, inner_context)
@@ -2419,28 +2229,30 @@ class Attribute(expr):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Subscript(expr):
-    slice: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    slice: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Subscript(slice=to_builtin(self.slice), value=to_builtin(self.value))
+        return ast.Subscript(
+            slice=utils.to_builtin(self.slice), value=utils.to_builtin(self.value)
+        )
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(slice=from_builtin(node.slice), value=from_builtin(node.value))
+        return cls(
+            slice=utils.from_builtin(node.slice), value=utils.from_builtin(node.value)
+        )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Subscript(
             slice=self.slice._transform(node_transformer, inner_context),
@@ -2450,25 +2262,24 @@ class Subscript(expr):
 
     def _children(self):
         yield self
-        yield from self.slice._children()
-        yield from self.value._children()
+        yield from self.slice()._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Starred(expr):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.Starred(value=to_builtin(self.value))
+        return ast.Starred(value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value))
+        return cls(value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Starred(
             value=self.value._transform(node_transformer, inner_context)
@@ -2477,10 +2288,10 @@ class Starred(expr):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Name(expr):
     id: str = attrs.field(converter=convert_identifier)
 
@@ -2491,7 +2302,7 @@ class Name(expr):
     def _from_builtin(cls, node):
         return cls(id=node.id)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Name(id=self.id)
         return node_transformer(transformed, context)
@@ -2500,24 +2311,24 @@ class Name(expr):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class List(expr):
-    elts: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.List(elts=[to_builtin(x) for x in self.elts])
+        return ast.List(elts=[utils.to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[from_builtin(x) for x in node.elts])
+        return cls(elts=[utils.from_builtin(x) for x in node.elts])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = List(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
@@ -2531,24 +2342,24 @@ class List(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Tuple(expr):
-    elts: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    elts: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.Tuple(elts=[to_builtin(x) for x in self.elts])
+        return ast.Tuple(elts=[utils.to_builtin(x) for x in self.elts])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(elts=[from_builtin(x) for x in node.elts])
+        return cls(elts=[utils.from_builtin(x) for x in node.elts])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Tuple(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
@@ -2562,46 +2373,40 @@ class Tuple(expr):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class Slice(expr):
-    lower: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    lower: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
-    step: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    step: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
-    upper: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    upper: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.Slice(
-            lower=None if self.lower is None else to_builtin(self.lower),
-            step=None if self.step is None else to_builtin(self.step),
-            upper=None if self.upper is None else to_builtin(self.upper),
+            lower=None if self.lower is None else utils.to_builtin(self.lower),
+            step=None if self.step is None else utils.to_builtin(self.step),
+            upper=None if self.upper is None else utils.to_builtin(self.upper),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            lower=None if node.lower is None else from_builtin(node.lower),
-            step=None if node.step is None else from_builtin(node.step),
-            upper=None if node.upper is None else from_builtin(node.upper),
+            lower=None if node.lower is None else utils.from_builtin(node.lower),
+            step=None if node.step is None else utils.from_builtin(node.step),
+            upper=None if node.upper is None else utils.from_builtin(node.upper),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Slice(
             lower=None
@@ -2619,18 +2424,18 @@ class Slice(expr):
     def _children(self):
         yield self
         if self.lower is not None:
-            yield from self.lower._children()
+            yield from self.lower()._children()
         if self.step is not None:
-            yield from self.step._children()
+            yield from self.step()._children()
         if self.upper is not None:
-            yield from self.upper._children()
+            yield from self.upper()._children()
 
 
 class expr_context(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class Load(expr_context):
     def _to_builtin(self):
         return ast.Load()
@@ -2639,7 +2444,7 @@ class Load(expr_context):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Load()
         return node_transformer(transformed, context)
@@ -2648,7 +2453,7 @@ class Load(expr_context):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Store(expr_context):
     def _to_builtin(self):
         return ast.Store()
@@ -2657,7 +2462,7 @@ class Store(expr_context):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Store()
         return node_transformer(transformed, context)
@@ -2666,7 +2471,7 @@ class Store(expr_context):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Del(expr_context):
     def _to_builtin(self):
         return ast.Del()
@@ -2675,7 +2480,7 @@ class Del(expr_context):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Del()
         return node_transformer(transformed, context)
@@ -2688,7 +2493,7 @@ class boolop(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class And(boolop):
     def _to_builtin(self):
         return ast.And()
@@ -2697,7 +2502,7 @@ class And(boolop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = And()
         return node_transformer(transformed, context)
@@ -2706,7 +2511,7 @@ class And(boolop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Or(boolop):
     def _to_builtin(self):
         return ast.Or()
@@ -2715,7 +2520,7 @@ class Or(boolop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Or()
         return node_transformer(transformed, context)
@@ -2728,7 +2533,7 @@ class operator(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class Add(operator):
     def _to_builtin(self):
         return ast.Add()
@@ -2737,7 +2542,7 @@ class Add(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Add()
         return node_transformer(transformed, context)
@@ -2746,7 +2551,7 @@ class Add(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Sub(operator):
     def _to_builtin(self):
         return ast.Sub()
@@ -2755,7 +2560,7 @@ class Sub(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Sub()
         return node_transformer(transformed, context)
@@ -2764,7 +2569,7 @@ class Sub(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Mult(operator):
     def _to_builtin(self):
         return ast.Mult()
@@ -2773,7 +2578,7 @@ class Mult(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Mult()
         return node_transformer(transformed, context)
@@ -2782,7 +2587,7 @@ class Mult(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class MatMult(operator):
     def _to_builtin(self):
         return ast.MatMult()
@@ -2791,7 +2596,7 @@ class MatMult(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatMult()
         return node_transformer(transformed, context)
@@ -2800,7 +2605,7 @@ class MatMult(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Div(operator):
     def _to_builtin(self):
         return ast.Div()
@@ -2809,7 +2614,7 @@ class Div(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Div()
         return node_transformer(transformed, context)
@@ -2818,7 +2623,7 @@ class Div(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Mod(operator):
     def _to_builtin(self):
         return ast.Mod()
@@ -2827,7 +2632,7 @@ class Mod(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Mod()
         return node_transformer(transformed, context)
@@ -2836,7 +2641,7 @@ class Mod(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Pow(operator):
     def _to_builtin(self):
         return ast.Pow()
@@ -2845,7 +2650,7 @@ class Pow(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Pow()
         return node_transformer(transformed, context)
@@ -2854,7 +2659,7 @@ class Pow(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class LShift(operator):
     def _to_builtin(self):
         return ast.LShift()
@@ -2863,7 +2668,7 @@ class LShift(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = LShift()
         return node_transformer(transformed, context)
@@ -2872,7 +2677,7 @@ class LShift(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class RShift(operator):
     def _to_builtin(self):
         return ast.RShift()
@@ -2881,7 +2686,7 @@ class RShift(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = RShift()
         return node_transformer(transformed, context)
@@ -2890,7 +2695,7 @@ class RShift(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class BitOr(operator):
     def _to_builtin(self):
         return ast.BitOr()
@@ -2899,7 +2704,7 @@ class BitOr(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = BitOr()
         return node_transformer(transformed, context)
@@ -2908,7 +2713,7 @@ class BitOr(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class BitXor(operator):
     def _to_builtin(self):
         return ast.BitXor()
@@ -2917,7 +2722,7 @@ class BitXor(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = BitXor()
         return node_transformer(transformed, context)
@@ -2926,7 +2731,7 @@ class BitXor(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class BitAnd(operator):
     def _to_builtin(self):
         return ast.BitAnd()
@@ -2935,7 +2740,7 @@ class BitAnd(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = BitAnd()
         return node_transformer(transformed, context)
@@ -2944,7 +2749,7 @@ class BitAnd(operator):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class FloorDiv(operator):
     def _to_builtin(self):
         return ast.FloorDiv()
@@ -2953,7 +2758,7 @@ class FloorDiv(operator):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = FloorDiv()
         return node_transformer(transformed, context)
@@ -2966,7 +2771,7 @@ class unaryop(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class Invert(unaryop):
     def _to_builtin(self):
         return ast.Invert()
@@ -2975,7 +2780,7 @@ class Invert(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Invert()
         return node_transformer(transformed, context)
@@ -2984,7 +2789,7 @@ class Invert(unaryop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Not(unaryop):
     def _to_builtin(self):
         return ast.Not()
@@ -2993,7 +2798,7 @@ class Not(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Not()
         return node_transformer(transformed, context)
@@ -3002,7 +2807,7 @@ class Not(unaryop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class UAdd(unaryop):
     def _to_builtin(self):
         return ast.UAdd()
@@ -3011,7 +2816,7 @@ class UAdd(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = UAdd()
         return node_transformer(transformed, context)
@@ -3020,7 +2825,7 @@ class UAdd(unaryop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class USub(unaryop):
     def _to_builtin(self):
         return ast.USub()
@@ -3029,7 +2834,7 @@ class USub(unaryop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = USub()
         return node_transformer(transformed, context)
@@ -3042,7 +2847,7 @@ class cmpop(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class Eq(cmpop):
     def _to_builtin(self):
         return ast.Eq()
@@ -3051,7 +2856,7 @@ class Eq(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Eq()
         return node_transformer(transformed, context)
@@ -3060,7 +2865,7 @@ class Eq(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class NotEq(cmpop):
     def _to_builtin(self):
         return ast.NotEq()
@@ -3069,7 +2874,7 @@ class NotEq(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = NotEq()
         return node_transformer(transformed, context)
@@ -3078,7 +2883,7 @@ class NotEq(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Lt(cmpop):
     def _to_builtin(self):
         return ast.Lt()
@@ -3087,7 +2892,7 @@ class Lt(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Lt()
         return node_transformer(transformed, context)
@@ -3096,7 +2901,7 @@ class Lt(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class LtE(cmpop):
     def _to_builtin(self):
         return ast.LtE()
@@ -3105,7 +2910,7 @@ class LtE(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = LtE()
         return node_transformer(transformed, context)
@@ -3114,7 +2919,7 @@ class LtE(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Gt(cmpop):
     def _to_builtin(self):
         return ast.Gt()
@@ -3123,7 +2928,7 @@ class Gt(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Gt()
         return node_transformer(transformed, context)
@@ -3132,7 +2937,7 @@ class Gt(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class GtE(cmpop):
     def _to_builtin(self):
         return ast.GtE()
@@ -3141,7 +2946,7 @@ class GtE(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = GtE()
         return node_transformer(transformed, context)
@@ -3150,7 +2955,7 @@ class GtE(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class Is(cmpop):
     def _to_builtin(self):
         return ast.Is()
@@ -3159,7 +2964,7 @@ class Is(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = Is()
         return node_transformer(transformed, context)
@@ -3168,7 +2973,7 @@ class Is(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class IsNot(cmpop):
     def _to_builtin(self):
         return ast.IsNot()
@@ -3177,7 +2982,7 @@ class IsNot(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = IsNot()
         return node_transformer(transformed, context)
@@ -3186,7 +2991,7 @@ class IsNot(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class In(cmpop):
     def _to_builtin(self):
         return ast.In()
@@ -3195,7 +3000,7 @@ class In(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = In()
         return node_transformer(transformed, context)
@@ -3204,7 +3009,7 @@ class In(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class NotIn(cmpop):
     def _to_builtin(self):
         return ast.NotIn()
@@ -3213,7 +3018,7 @@ class NotIn(cmpop):
     def _from_builtin(cls, node):
         return cls()
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = NotIn()
         return node_transformer(transformed, context)
@@ -3222,20 +3027,18 @@ class NotIn(cmpop):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class comprehension(Node):
     is_async: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
-    iter: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    iter: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    target: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    target: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    ifs: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    ifs: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -3244,21 +3047,21 @@ class comprehension(Node):
     def _to_builtin(self):
         return ast.comprehension(
             is_async=self.is_async,
-            iter=to_builtin(self.iter),
-            target=to_builtin(self.target),
-            ifs=[to_builtin(x) for x in self.ifs],
+            iter=utils.to_builtin(self.iter),
+            target=utils.to_builtin(self.target),
+            ifs=[utils.to_builtin(x) for x in self.ifs],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             is_async=node.is_async,
-            iter=from_builtin(node.iter),
-            target=from_builtin(node.target),
-            ifs=[from_builtin(x) for x in node.ifs],
+            iter=utils.from_builtin(node.iter),
+            target=utils.from_builtin(node.target),
+            ifs=[utils.from_builtin(x) for x in node.ifs],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = comprehension(
             is_async=self.is_async,
@@ -3270,8 +3073,8 @@ class comprehension(Node):
 
     def _children(self):
         yield self
-        yield from self.iter._children()
-        yield from self.target._children()
+        yield from self.iter()._children()
+        yield from self.target()._children()
         for x in self.ifs:
             if x is not None:
                 yield from x._children()
@@ -3281,11 +3084,11 @@ class excepthandler(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class ExceptHandler(excepthandler):
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -3293,30 +3096,28 @@ class ExceptHandler(excepthandler):
     name: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
     )
-    type: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    type: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.ExceptHandler(
-            body=[to_builtin(x) for x in self.body],
+            body=[utils.to_builtin(x) for x in self.body],
             name=self.name,
-            type=None if self.type is None else to_builtin(self.type),
+            type=None if self.type is None else utils.to_builtin(self.type),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            body=[from_builtin(x) for x in node.body],
+            body=[utils.from_builtin(x) for x in node.body],
             name=node.name,
-            type=None if node.type is None else from_builtin(node.type),
+            type=None if node.type is None else utils.from_builtin(node.type),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = ExceptHandler(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -3333,85 +3134,75 @@ class ExceptHandler(excepthandler):
             if x is not None:
                 yield from x._children()
         if self.type is not None:
-            yield from self.type._children()
+            yield from self.type()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class arguments(Node):
-    args: Sequence[Union[arg, TemplateVariable]] = attrs.field(
+    args: Sequence[arg] = attrs.field(
+        validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
+        converter=DeepIterableConverter(unwrap_underscore),
+        factory=list,
+    )
+    defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (arg, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    defaults: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    kw_defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    kw_defaults: Sequence[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
-    )
-    kwarg: Optional[Union[arg, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (arg, TemplateVariable))
-        ),
+    kwarg: Optional[arg] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
-    kwonlyargs: Sequence[Union[arg, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (arg, TemplateVariable))
-        ),
+    kwonlyargs: Sequence[arg] = attrs.field(
+        validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    posonlyargs: Sequence[Union[arg, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (arg, TemplateVariable))
-        ),
+    posonlyargs: Sequence[arg] = attrs.field(
+        validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    vararg: Optional[Union[arg, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (arg, TemplateVariable))
-        ),
+    vararg: Optional[arg] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.arguments(
-            args=[to_builtin(x) for x in self.args],
-            defaults=[to_builtin(x) for x in self.defaults],
-            kw_defaults=[to_builtin(x) for x in self.kw_defaults],
-            kwarg=None if self.kwarg is None else to_builtin(self.kwarg),
-            kwonlyargs=[to_builtin(x) for x in self.kwonlyargs],
-            posonlyargs=[to_builtin(x) for x in self.posonlyargs],
-            vararg=None if self.vararg is None else to_builtin(self.vararg),
+            args=[utils.to_builtin(x) for x in self.args],
+            defaults=[utils.to_builtin(x) for x in self.defaults],
+            kw_defaults=[utils.to_builtin(x) for x in self.kw_defaults],
+            kwarg=None if self.kwarg is None else utils.to_builtin(self.kwarg),
+            kwonlyargs=[utils.to_builtin(x) for x in self.kwonlyargs],
+            posonlyargs=[utils.to_builtin(x) for x in self.posonlyargs],
+            vararg=None if self.vararg is None else utils.to_builtin(self.vararg),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            args=[from_builtin(x) for x in node.args],
-            defaults=[from_builtin(x) for x in node.defaults],
-            kw_defaults=[from_builtin(x) for x in node.kw_defaults],
-            kwarg=None if node.kwarg is None else from_builtin(node.kwarg),
-            kwonlyargs=[from_builtin(x) for x in node.kwonlyargs],
-            posonlyargs=[from_builtin(x) for x in node.posonlyargs],
-            vararg=None if node.vararg is None else from_builtin(node.vararg),
+            args=[utils.from_builtin(x) for x in node.args],
+            defaults=[utils.from_builtin(x) for x in node.defaults],
+            kw_defaults=[utils.from_builtin(x) for x in node.kw_defaults],
+            kwarg=None if node.kwarg is None else utils.from_builtin(node.kwarg),
+            kwonlyargs=[utils.from_builtin(x) for x in node.kwonlyargs],
+            posonlyargs=[utils.from_builtin(x) for x in node.posonlyargs],
+            vararg=None if node.vararg is None else utils.from_builtin(node.vararg),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = arguments(
             args=[x._transform(node_transformer, inner_context) for x in self.args],
@@ -3448,7 +3239,7 @@ class arguments(Node):
             if x is not None:
                 yield from x._children()
         if self.kwarg is not None:
-            yield from self.kwarg._children()
+            yield from self.kwarg()._children()
         for x in self.kwonlyargs:
             if x is not None:
                 yield from x._children()
@@ -3456,16 +3247,14 @@ class arguments(Node):
             if x is not None:
                 yield from x._children()
         if self.vararg is not None:
-            yield from self.vararg._children()
+            yield from self.vararg()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class arg(Node):
     arg: str = attrs.field(converter=convert_identifier)
-    annotation: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    annotation: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
@@ -3478,7 +3267,9 @@ class arg(Node):
     def _to_builtin(self):
         return ast.arg(
             arg=self.arg,
-            annotation=None if self.annotation is None else to_builtin(self.annotation),
+            annotation=None
+            if self.annotation is None
+            else utils.to_builtin(self.annotation),
             type_comment=self.type_comment,
         )
 
@@ -3488,11 +3279,11 @@ class arg(Node):
             arg=node.arg,
             annotation=None
             if node.annotation is None
-            else from_builtin(node.annotation),
+            else utils.from_builtin(node.annotation),
             type_comment=node.type_comment,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = arg(
             arg=self.arg,
@@ -3506,27 +3297,26 @@ class arg(Node):
     def _children(self):
         yield self
         if self.annotation is not None:
-            yield from self.annotation._children()
+            yield from self.annotation()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class keyword(Node):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
     arg: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
     )
 
     def _to_builtin(self):
-        return ast.keyword(value=to_builtin(self.value), arg=self.arg)
+        return ast.keyword(value=utils.to_builtin(self.value), arg=self.arg)
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value), arg=node.arg)
+        return cls(value=utils.from_builtin(node.value), arg=node.arg)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = keyword(
             value=self.value._transform(node_transformer, inner_context), arg=self.arg
@@ -3535,10 +3325,10 @@ class keyword(Node):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class alias(Node):
     name: str = attrs.field(converter=convert_identifier)
     asname: Optional[str] = attrs.field(
@@ -3552,7 +3342,7 @@ class alias(Node):
     def _from_builtin(cls, node):
         return cls(name=node.name, asname=node.asname)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = alias(name=self.name, asname=self.asname)
         return node_transformer(transformed, context)
@@ -3561,38 +3351,35 @@ class alias(Node):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class withitem(Node):
-    context_expr: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    context_expr: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
-    optional_vars: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    optional_vars: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.withitem(
-            context_expr=to_builtin(self.context_expr),
+            context_expr=utils.to_builtin(self.context_expr),
             optional_vars=None
             if self.optional_vars is None
-            else to_builtin(self.optional_vars),
+            else utils.to_builtin(self.optional_vars),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            context_expr=from_builtin(node.context_expr),
+            context_expr=utils.from_builtin(node.context_expr),
             optional_vars=None
             if node.optional_vars is None
-            else from_builtin(node.optional_vars),
+            else utils.from_builtin(node.optional_vars),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = withitem(
             context_expr=self.context_expr._transform(node_transformer, inner_context),
@@ -3604,48 +3391,45 @@ class withitem(Node):
 
     def _children(self):
         yield self
-        yield from self.context_expr._children()
+        yield from self.context_expr()._children()
         if self.optional_vars is not None:
-            yield from self.optional_vars._children()
+            yield from self.optional_vars()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class match_case(Node):
-    pattern: Union[pattern, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable)),
-        converter=unwrap_underscore,
+    pattern: pattern = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: pattern), converter=unwrap_underscore
     )
-    body: Sequence[Union[stmt, TemplateVariable]] = attrs.field(
+    body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (stmt, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: stmt)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    guard: Optional[Union[expr, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
-        ),
+    guard: Optional[expr] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
 
     def _to_builtin(self):
         return ast.match_case(
-            pattern=to_builtin(self.pattern),
-            body=[to_builtin(x) for x in self.body],
-            guard=None if self.guard is None else to_builtin(self.guard),
+            pattern=utils.to_builtin(self.pattern),
+            body=[utils.to_builtin(x) for x in self.body],
+            guard=None if self.guard is None else utils.to_builtin(self.guard),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            pattern=from_builtin(node.pattern),
-            body=[from_builtin(x) for x in node.body],
-            guard=None if node.guard is None else from_builtin(node.guard),
+            pattern=utils.from_builtin(node.pattern),
+            body=[utils.from_builtin(x) for x in node.body],
+            guard=None if node.guard is None else utils.from_builtin(node.guard),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = match_case(
             pattern=self.pattern._transform(node_transformer, inner_context),
@@ -3658,33 +3442,32 @@ class match_case(Node):
 
     def _children(self):
         yield self
-        yield from self.pattern._children()
+        yield from self.pattern()._children()
         for x in self.body:
             if x is not None:
                 yield from x._children()
         if self.guard is not None:
-            yield from self.guard._children()
+            yield from self.guard()._children()
 
 
 class pattern(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchValue(pattern):
-    value: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    value: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
 
     def _to_builtin(self):
-        return ast.MatchValue(value=to_builtin(self.value))
+        return ast.MatchValue(value=utils.to_builtin(self.value))
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(value=from_builtin(node.value))
+        return cls(value=utils.from_builtin(node.value))
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchValue(
             value=self.value._transform(node_transformer, inner_context)
@@ -3693,10 +3476,10 @@ class MatchValue(pattern):
 
     def _children(self):
         yield self
-        yield from self.value._children()
+        yield from self.value()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchSingleton(pattern):
     value: Any = attrs.field()
 
@@ -3707,7 +3490,7 @@ class MatchSingleton(pattern):
     def _from_builtin(cls, node):
         return cls(value=node.value)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchSingleton(value=self.value)
         return node_transformer(transformed, context)
@@ -3716,24 +3499,24 @@ class MatchSingleton(pattern):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchSequence(pattern):
-    patterns: Sequence[Union[pattern, TemplateVariable]] = attrs.field(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: pattern)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.MatchSequence(patterns=[to_builtin(x) for x in self.patterns])
+        return ast.MatchSequence(patterns=[utils.to_builtin(x) for x in self.patterns])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(patterns=[from_builtin(x) for x in node.patterns])
+        return cls(patterns=[utils.from_builtin(x) for x in node.patterns])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchSequence(
             patterns=[
@@ -3749,18 +3532,18 @@ class MatchSequence(pattern):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchMapping(pattern):
-    keys: Sequence[Union[expr, TemplateVariable]] = attrs.field(
+    keys: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (expr, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: expr)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    patterns: Sequence[Union[pattern, TemplateVariable]] = attrs.field(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: pattern)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -3771,20 +3554,20 @@ class MatchMapping(pattern):
 
     def _to_builtin(self):
         return ast.MatchMapping(
-            keys=[to_builtin(x) for x in self.keys],
-            patterns=[to_builtin(x) for x in self.patterns],
+            keys=[utils.to_builtin(x) for x in self.keys],
+            patterns=[utils.to_builtin(x) for x in self.patterns],
             rest=self.rest,
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            keys=[from_builtin(x) for x in node.keys],
-            patterns=[from_builtin(x) for x in node.patterns],
+            keys=[utils.from_builtin(x) for x in node.keys],
+            patterns=[utils.from_builtin(x) for x in node.patterns],
             rest=node.rest,
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchMapping(
             keys=[x._transform(node_transformer, inner_context) for x in self.keys],
@@ -3805,25 +3588,24 @@ class MatchMapping(pattern):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchClass(pattern):
-    cls: Union[expr, TemplateVariable] = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: (expr, TemplateVariable)),
-        converter=unwrap_underscore,
+    cls: expr = attrs.field(
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
     )
     kwd_attrs: Sequence[str] = attrs.field(
         converter=DeepIterableConverter(convert_identifier), factory=list
     )
-    kwd_patterns: Sequence[Union[pattern, TemplateVariable]] = attrs.field(
+    kwd_patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: pattern)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
-    patterns: Sequence[Union[pattern, TemplateVariable]] = attrs.field(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: pattern)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
@@ -3831,22 +3613,22 @@ class MatchClass(pattern):
 
     def _to_builtin(self):
         return ast.MatchClass(
-            cls=to_builtin(self.cls),
+            cls=utils.to_builtin(self.cls),
             kwd_attrs=self.kwd_attrs,
-            kwd_patterns=[to_builtin(x) for x in self.kwd_patterns],
-            patterns=[to_builtin(x) for x in self.patterns],
+            kwd_patterns=[utils.to_builtin(x) for x in self.kwd_patterns],
+            patterns=[utils.to_builtin(x) for x in self.patterns],
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
-            cls=from_builtin(node.cls),
+            cls=utils.from_builtin(node.cls),
             kwd_attrs=node.kwd_attrs,
-            kwd_patterns=[from_builtin(x) for x in node.kwd_patterns],
-            patterns=[from_builtin(x) for x in node.patterns],
+            kwd_patterns=[utils.from_builtin(x) for x in node.kwd_patterns],
+            patterns=[utils.from_builtin(x) for x in node.patterns],
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchClass(
             cls=self.cls._transform(node_transformer, inner_context),
@@ -3862,7 +3644,7 @@ class MatchClass(pattern):
 
     def _children(self):
         yield self
-        yield from self.cls._children()
+        yield from self.cls()._children()
         for x in self.kwd_patterns:
             if x is not None:
                 yield from x._children()
@@ -3871,7 +3653,7 @@ class MatchClass(pattern):
                 yield from x._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchStar(pattern):
     name: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
@@ -3884,7 +3666,7 @@ class MatchStar(pattern):
     def _from_builtin(cls, node):
         return cls(name=node.name)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchStar(name=self.name)
         return node_transformer(transformed, context)
@@ -3893,15 +3675,13 @@ class MatchStar(pattern):
         yield self
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchAs(pattern):
     name: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
     )
-    pattern: Optional[Union[pattern, TemplateVariable]] = attrs.field(
-        validator=attrs.validators.optional(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
-        ),
+    pattern: Optional[pattern] = attrs.field(
+        validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: pattern)),
         converter=attrs.converters.optional(unwrap_underscore),
         default=None,
     )
@@ -3909,17 +3689,17 @@ class MatchAs(pattern):
     def _to_builtin(self):
         return ast.MatchAs(
             name=self.name,
-            pattern=None if self.pattern is None else to_builtin(self.pattern),
+            pattern=None if self.pattern is None else utils.to_builtin(self.pattern),
         )
 
     @classmethod
     def _from_builtin(cls, node):
         return cls(
             name=node.name,
-            pattern=None if node.pattern is None else from_builtin(node.pattern),
+            pattern=None if node.pattern is None else utils.from_builtin(node.pattern),
         )
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchAs(
             name=self.name,
@@ -3932,27 +3712,27 @@ class MatchAs(pattern):
     def _children(self):
         yield self
         if self.pattern is not None:
-            yield from self.pattern._children()
+            yield from self.pattern()._children()
 
 
-@attrs.define()
+@attrs.frozen()
 class MatchOr(pattern):
-    patterns: Sequence[Union[pattern, TemplateVariable]] = attrs.field(
+    patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
-            ProxyInstanceOfValidator(lambda: (pattern, TemplateVariable))
+            ProxyInstanceOfValidator(lambda: pattern)
         ),
         converter=DeepIterableConverter(unwrap_underscore),
         factory=list,
     )
 
     def _to_builtin(self):
-        return ast.MatchOr(patterns=[to_builtin(x) for x in self.patterns])
+        return ast.MatchOr(patterns=[utils.to_builtin(x) for x in self.patterns])
 
     @classmethod
     def _from_builtin(cls, node):
-        return cls(patterns=[from_builtin(x) for x in node.patterns])
+        return cls(patterns=[utils.from_builtin(x) for x in node.patterns])
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = MatchOr(
             patterns=[
@@ -3972,7 +3752,7 @@ class type_ignore(Node):
     pass
 
 
-@attrs.define()
+@attrs.frozen()
 class TypeIgnore(type_ignore):
     lineno: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
     tag: str = attrs.field(validator=ProxyInstanceOfValidator(lambda: str))
@@ -3984,7 +3764,7 @@ class TypeIgnore(type_ignore):
     def _from_builtin(cls, node):
         return cls(lineno=node.lineno, tag=node.tag)
 
-    def _transform(self, node_transformer, context=TransformerContext()):
+    def _transform(self, node_transformer, context):
         inner_context = TransformerContext(parents=[self, *context.parents])
         transformed = TypeIgnore(lineno=self.lineno, tag=self.tag)
         return node_transformer(transformed, context)
@@ -4101,22 +3881,3 @@ NODES = dict(
     MatchOr=MatchOr,
     TypeIgnore=TypeIgnore,
 )
-
-
-@attrs.define()
-class TemplateVariable:
-    id: str = attrs.field(converter=convert_identifier)
-
-    def _to_builtin(self):
-        raise TypeError(f"{self} has no related ast.AST node")
-
-    @classmethod
-    def _from_builtin(cls, node):
-        raise TypeError(f"{self} has no related ast.AST node")
-
-    def _transform(self, node_transformer, context=TransformerContext()):
-        context = TransformerContext(parents=[self, *context.parents])
-        return TemplateVariable(id=self.id)
-
-    def _children(self):
-        yield self

@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 import keyword
-from typing import Union, Callable, Any
+from typing import Any, Callable, Union
 
 # from . import wast
 from attrs import define, field

@@ -1,6 +1,7 @@
-from pathlib import Path
-from activated_wast import w
 from itertools import chain
+from pathlib import Path
+
+from activated_wast import n, wast
 
 
 def generate_key(entry):
@@ -10,13 +11,16 @@ def generate_key(entry):
 
 def load_fragment(entry):
     text = entry.read_text()
-    raw = w.parse(text)
+    raw = wast.parse(text)
+
+    if text.startswith("# raw\n"):
+        return raw
     body = raw.body  # unwrap module
 
     assert len(body)
 
     # extract expressions from Expr()
-    if all(isinstance(x, w.Expr) for x in body):
+    if all(isinstance(x, n.Expr) for x in body):
         body = [x.value for x in body]
 
     # extract single statement/expression
@@ -37,12 +41,14 @@ fragments = {
 
 used_fragments = set()
 
+NOTSET = object()
 
-def get_fragment(*args, default=...):
+
+def get_fragment(*args, default=NOTSET):
     key = tuple(chain.from_iterable(x.split("/") for x in args))
     used_fragments.add(key)
 
-    if default is ...:
+    if default is NOTSET:
         return fragments[key]
 
     return fragments.get(key, default)
