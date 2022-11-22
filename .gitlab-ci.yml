@@ -35,7 +35,6 @@ variables:
       -t ${CI_IMAGE}
       -t ${CI_CACHE_IMAGE}
       --build-arg HOST_UID=1000
-      --build-arg HOST_USER=qwolphin
       .
     - docker push ${CI_IMAGE}
     - docker push ${CI_CACHE_IMAGE}
@@ -69,7 +68,6 @@ variables:
   except:
     - tags
   variables:
-    CI_DEBUG_TRACE: 1
     TWINE_REPOSITORY: testpypi
     TWINE_PASSWORD: $TEST_PYPI_PASS
 

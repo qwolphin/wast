@@ -1,8 +1,12 @@
 # WAST: Ergonomic Code Generation
 
+```{note}
+Now in public beta, please expect minor changes to public API's
+```
+
 Release **{sub-ref}`release`**
 
-`wast` (stands for "Wolphin Abstract Syntax Tree") is the Python package that will make code generation **practical** and **ergonomic**
+`wast` (WAST Abstract Syntax Tree) is the Python package that will make code generation **practical** and **ergonomic**
 
 It was originally intended for advanced Python developers who are interested in reducing boilerplate code while working on libraries with huge API surface
 
@@ -23,7 +27,9 @@ $ pip3 install wast
 
 The next steps will get you up and running in no time:
 
-- {doc}`getting_started` will show you a simple example of `wast` in action and introduce you to its philosophy.
+- {doc}`getting_started` will show you a simple example of `wast` in action and introduce you to its philosophy
+- {doc}`examples` has a small collection of more advanced examples
+- ...and more to come (documentation being updated)
 
 
 ```{toctree}
@@ -32,11 +38,8 @@ maxdepth: 2
 caption: Contents
 ---
 getting_started
-api_docs/index
-```
-
-```{warning}
-It's broken!
+examples
+api_docs/main
 ```
 
 # Indices and tables

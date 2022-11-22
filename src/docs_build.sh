@@ -10,6 +10,6 @@ fi
 
 /app/build.sh
 
-time sphinx-build -n -b html /app/docs /docs
-
 time sphinx-build -n -b doctest /app/docs /docs
+
+time sphinx-build -n -b html /app/docs /docs

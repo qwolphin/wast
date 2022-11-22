@@ -44,7 +44,7 @@ otr = _.other._("__inner__")
 
 
 def render_binop(dunder_name, op):
-    ret = _.w.BoundUnderscore(_.w.BinOp(left=inr, op=op, right=otr))
+    ret = _.BoundUnderscore(_.w.BinOp(left=inr, op=op, right=otr))
     return w.FunctionDef(
         name=dunder_name,
         args=w.arguments(
@@ -58,7 +58,7 @@ def render_binop(dunder_name, op):
 
 
 def render_unop(dunder_name, op):
-    ret = _.w.UnaryOp(op=op, operand=inr)
+    ret = _.BoundUnderscore(_.w.UnaryOp(op=op, operand=inr))
     return w.FunctionDef(
         name=dunder_name,
         args=w.arguments(
@@ -71,7 +71,7 @@ def render_unop(dunder_name, op):
 
 
 def render_cmpop(dunder_name, op):
-    ret = _.w.BoundUnderscore(
+    ret = _.BoundUnderscore(
         _.w.Compare(
             left=inr,
             comparators=w.List([otr]),

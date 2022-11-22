@@ -13,7 +13,7 @@ RUN mkdir -m 777 /docs
 COPY requirements.txt /requirements.txt
 RUN sudo pip3 install --no-cache --upgrade -r /requirements.txt
 
-USER $HOST_USER
+USER user
 ENV PYTHONPATH=/app
 
 FROM requirements as complete

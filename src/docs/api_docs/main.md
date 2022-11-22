@@ -4,8 +4,6 @@
 .. automodule:: wast
     :members:
     :undoc-members:
-
-    The module is **great**!
 ```
 
 ```{toctree}
