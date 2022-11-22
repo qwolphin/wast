@@ -48,6 +48,8 @@ variables:
     - docker
   script:
     - cd /app
+    - id
+    - ls -lah .
     - ./build.sh
     - ./docs_build.sh
 
