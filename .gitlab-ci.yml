@@ -5,7 +5,7 @@ stages:
   - publish_image
 
 variables:
-  KDSL_VERSION: 0.0.1.post${CI_PIPELINE_IID} # FIXME TODO XXX
+  WAST_VERSION: 0.0.1.post${CI_PIPELINE_IID}
   CI_IMAGE: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}
   CI_CACHE_IMAGE: ${CI_REGISTRY_IMAGE}:cache
 
@@ -48,8 +48,6 @@ variables:
     - docker
   script:
     - cd /app
-    - id
-    - ls -lah .
     - ./build.sh
     - ./docs_build.sh
 
