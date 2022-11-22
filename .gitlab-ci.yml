@@ -35,7 +35,7 @@ variables:
       -t ${CI_IMAGE}
       -t ${CI_CACHE_IMAGE}
       --build-arg HOST_UID=1000
-      --build_arg HOST_USER=qwolphin
+      --build-arg HOST_USER=qwolphin
       .
     - docker push ${CI_IMAGE}
     - docker push ${CI_CACHE_IMAGE}
