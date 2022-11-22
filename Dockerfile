@@ -11,7 +11,7 @@ RUN useradd -m --uid ${HOST_UID?} user && \
 RUN mkdir -m 777 /docs
 
 COPY requirements.txt /requirements.txt
-RUN sudo pip3 install --no-cache -r /requirements.txt
+RUN sudo pip3 install --no-cache --upgrade -r /requirements.txt
 
 USER $HOST_USER
 ENV PYTHONPATH=/app
