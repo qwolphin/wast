@@ -13,3 +13,8 @@ pyflakes
 sphinx
 sphinx_rtd_theme
 myst-parser
+
+# PyPI interaction
+twine
+setuptools
+wheel
