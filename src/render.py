@@ -3,17 +3,17 @@ from pathlib import Path
 
 import attrs
 
+import mk_helpers
+from activated_wast import _, get_fragment, w, unparse
 from upstream import asdl, dfns
-import operator_overloads
-from activated_wast import _, n, unparse, get_fragment
 
 
 def mk_io_validator(val):
-    return _.ProxyInstanceOfValidator(n.Lambda(n.arguments(), val))
+    return _.ProxyInstanceOfValidator(w.Lambda(w.arguments(), val))
 
 
 def const(val):
-    return n.Constant(val)
+    return w.Constant(val)
 
 
 @attrs.define
@@ -47,48 +47,24 @@ class Field:
     def mk_transformer(self, value_expr, mk_fn):
         if self.is_object:
             if self.opt:
-                return n.IfExp(
+                return w.IfExp(
                     body=const(None),
                     orelse=mk_fn(value_expr),
-                    test=n.Compare(
-                        left=value_expr, comparators=[const(None)], ops=[n.Is()]
+                    test=w.Compare(
+                        left=value_expr, comparators=[const(None)], ops=[w.Is()]
                     ),
                 )
             elif self.seq:
-                return n.ListComp(
+                return w.ListComp(
                     elt=mk_fn(_.x),
                     generators=[
-                        n.comprehension(is_async=0, iter=value_expr, target=_.x)
+                        w.comprehension(is_async=0, iter=value_expr, target=_.x)
                     ],
                 )
             else:
                 return mk_fn(value_expr)
         else:
             return value_expr
-
-    @property
-    def nodes_iter_entry(self):
-        if not self.is_object:
-            return []
-
-        val = _.self._(self.name)
-        iter = val()._children()
-        if self.opt:
-            ret = n.If(
-                test=n.Compare(left=val, comparators=[const(None)], ops=[n.IsNot()]),
-                body=[n.Expr(n.YieldFrom(value=iter))],
-            )
-        elif self.seq:
-            inner = n.If(
-                test=n.Compare(left=_.x, comparators=[const(None)], ops=[n.IsNot()]),
-                body=[n.Expr(n.YieldFrom(value=_.x._children()))],
-            )
-            ret = n.For(iter=val, target=_.x, body=[inner])
-
-        else:
-            ret = n.Expr(n.YieldFrom(value=iter))
-
-        return [ret]
 
     @property
     def rendered(self):
@@ -110,7 +86,7 @@ class Field:
                 annotation = _.Any
             case _:
                 annotation = _(self.type)
-                converters += [_.unwrap_underscore]
+                converters += [_.unwrap_node]
                 validators += [mk_io_validator(annotation)]
 
         if validators:
@@ -125,7 +101,7 @@ class Field:
             first, *rest = converters
 
             if rest:
-                converter = _.attrs.converter.pipe(*converters)
+                converter = _.attrs.converters.pipe(*converters)
             else:
                 converter = first
 
@@ -139,7 +115,7 @@ class Field:
             if converters:
                 field_args |= dict(converter=_.attrs.converters.optional(converter))
 
-            field_args |= dict(default=n.Constant(None))
+            field_args |= dict(default=w.Constant(None))
         elif spec.seq:
             annotation = _.Sequence[annotation]
 
@@ -149,9 +125,11 @@ class Field:
                 )
 
             if converters:
-                field_args |= dict(converter=_.DeepIterableConverter(converter))
+                converter = _.attrs.converters.pipe(_.unpack_nested, _.DeepIterableConverter(converter))
+            else:
+                converter = _.unpack_nested
 
-            field_args |= dict(factory=_.list)
+            field_args |= dict(factory=_.tuple, converter=converter)
         else:
             if validators:
                 field_args |= dict(validator=validator)
@@ -160,9 +138,9 @@ class Field:
                 field_args |= dict(converter=converter)
 
         if self.name in ("type_comment", "type_ignores"):
-            field_args |= dict(repr=n.Constant(False))
+            field_args |= dict(repr=w.Constant(False))
 
-        node = n.AnnAssign(
+        node = w.AnnAssign(
             target=_(self.name),
             annotation=annotation,
             value=_.attrs.field(**field_args),
@@ -187,12 +165,12 @@ class FieldsMixin:
         }
         ret = _.ast._(self.name)(**kwargs)
 
-        return n.FunctionDef(
+        return w.FunctionDef(
             name="_to_builtin",
-            args=n.arguments(
-                args=[n.arg(arg="self")],
+            args=w.arguments(
+                args=[w.arg(arg="self")],
             ),
-            body=[n.Return(ret)],
+            body=[w.Return(ret)],
         )
 
     @property
@@ -203,21 +181,22 @@ class FieldsMixin:
         }
         ret = _.cls(**kwargs)
 
-        return n.FunctionDef(
+        return w.FunctionDef(
             name="_from_builtin",
             decorator_list=[_.classmethod],
-            args=n.arguments(
-                args=[n.arg(arg="cls"), n.arg(arg="node")],
+            args=w.arguments(
+                args=[w.arg(arg="cls"), w.arg(arg="node")],
             ),
-            body=[n.Return(ret)],
+            body=[w.Return(ret)],
         )
 
     @property
     def transform(self):
-        inner_context = n.Assign(
+        inner_context = w.Assign(
             targets=[_.inner_context],
             value=_.TransformerContext(
-                parents=n.List([_.self, n.Starred(_.context.parents)])
+                parents=w.List([_.self, w.Starred(_.context.parents)]),
+                original=_.self,
             ),
         )
         kwargs = {
@@ -227,40 +206,24 @@ class FieldsMixin:
             )
             for x in self.parsed_fields
         }
-        transformed = n.Assign(targets=[_.transformed], value=_(self.name)(**kwargs))
+        transformed = w.Assign(targets=[_.transformed], value=_(self.name)(**kwargs))
         ret = _.node_transformer(_.transformed, _.context)
 
-        return n.FunctionDef(
+        return w.FunctionDef(
             name="_transform",
-            args=n.arguments(
+            args=w.arguments(
                 args=[
-                    n.arg(arg="self"),
-                    n.arg(arg="node_transformer"),
-                    n.arg(arg="context"),
+                    w.arg(arg="self"),
+                    w.arg(arg="node_transformer"),
+                    w.arg(arg="context"),
                 ],
             ),
-            body=[inner_context, transformed, n.Return(ret)],
-        )
-
-    @property
-    def nodes_iter(self):
-        body = [
-            n.Expr(n.Yield(value=_.self)),
-            *chain.from_iterable(x.nodes_iter_entry for x in self.parsed_fields),
-        ]
-        return n.FunctionDef(
-            name="_children",
-            args=n.arguments(
-                args=[
-                    n.arg(arg="self"),
-                ],
-            ),
-            body=body,
+            body=[inner_context, transformed, w.Return(ret)],
         )
 
     @property
     def rendered(self):
-        node = n.ClassDef(
+        node = w.ClassDef(
             decorator_list=[_.attrs.frozen()],
             bases=[_(self.base_name)],
             name=self.name,
@@ -269,7 +232,6 @@ class FieldsMixin:
                 self.to_builtin,
                 self.from_builtin,
                 self.transform,
-                self.nodes_iter,
             ],
         )
         return [node]
@@ -304,10 +266,10 @@ class Sum:
 
     @property
     def rendered(self):
-        base = n.ClassDef(
+        base = w.ClassDef(
             bases=[_.Node],
             name=self.name,
-            body=[n.Pass()],
+            body=[w.Pass()],
         )
         return [
             base,
@@ -353,11 +315,11 @@ class TopLevel:
 
     @property
     def rendered(self):
-        registry = n.Assign(
+        registry = w.Assign(
             value=_.dict(**{x.name: _(x.name) for x in self.nodes}),
             targets=[_.NODES],
         )
-        return n.Module(
+        return w.Module(
             [
                 *get_fragment("header"),
                 *chain.from_iterable(x.rendered for x in self.dfns_parsed),
@@ -368,13 +330,7 @@ class TopLevel:
 
 nodes_tree = TopLevel(dfns=dfns).rendered
 nodes_text = unparse(nodes_tree)
-
-"""
-from helpers import transformer
-
-@transformer(filter=lambda e, c: n == n.Expr(n.Name('___operator_overloads')))
-def asdf(e, c):
-    return operator_overloads.methods
-"""
+helpers_text = unparse(mk_helpers.tree)
 
 Path("wast/nodes.py").write_text(nodes_text)
+Path("wast/helpers.py").write_text(helpers_text)

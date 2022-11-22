@@ -1,13 +1,14 @@
 from __future__ import annotations
 import ast
-from typing import Callable, Optional, Sequence, Union
+from typing import Any, Optional, Sequence
 import attrs
-from .common import Node, WrappedNode, TransformerContext
+from .common import Node, TransformerContext, WrappedNode
 from .validators import (
     DeepIterableConverter,
     ProxyInstanceOfValidator,
     convert_identifier,
-    unwrap_underscore,
+    unwrap_node,
+    unpack_nested,
 )
 
 
@@ -28,10 +29,6 @@ def from_builtin(node: ast.AST) -> Node:
     return NODES[t]._from_builtin(node)
 
 
-class Node:
-    pass
-
-
 class mod(Node):
     pass
 
@@ -42,15 +39,19 @@ class Module(mod):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_ignores: Sequence[type_ignore] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: type_ignore)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
         repr=False,
     )
 
@@ -68,7 +69,9 @@ class Module(mod):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Module(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
             type_ignores=[
@@ -93,8 +96,10 @@ class Interactive(mod):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -105,7 +110,9 @@ class Interactive(mod):
         return cls(body=[from_builtin(x) for x in node.body])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Interactive(
             body=[x._transform(node_transformer, inner_context) for x in self.body]
         )
@@ -121,7 +128,7 @@ class Interactive(mod):
 @attrs.frozen()
 class Expression(mod):
     body: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -132,7 +139,9 @@ class Expression(mod):
         return cls(body=from_builtin(node.body))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Expression(
             body=self.body._transform(node_transformer, inner_context)
         )
@@ -146,14 +155,16 @@ class Expression(mod):
 @attrs.frozen()
 class FunctionType(mod):
     returns: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     argtypes: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -170,7 +181,9 @@ class FunctionType(mod):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = FunctionType(
             returns=self.returns._transform(node_transformer, inner_context),
             argtypes=[
@@ -194,27 +207,30 @@ class stmt(Node):
 @attrs.frozen()
 class FunctionDef(stmt):
     args: arguments = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: arguments),
-        converter=unwrap_underscore,
+        validator=ProxyInstanceOfValidator(lambda: arguments), converter=unwrap_node
     )
     name: str = attrs.field(converter=convert_identifier)
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     returns: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     type_comment: Optional[str] = attrs.field(
@@ -245,7 +261,9 @@ class FunctionDef(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = FunctionDef(
             args=self.args._transform(node_transformer, inner_context),
             name=self.name,
@@ -277,27 +295,30 @@ class FunctionDef(stmt):
 @attrs.frozen()
 class AsyncFunctionDef(stmt):
     args: arguments = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: arguments),
-        converter=unwrap_underscore,
+        validator=ProxyInstanceOfValidator(lambda: arguments), converter=unwrap_node
     )
     name: str = attrs.field(converter=convert_identifier)
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     returns: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     type_comment: Optional[str] = attrs.field(
@@ -328,7 +349,9 @@ class AsyncFunctionDef(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = AsyncFunctionDef(
             args=self.args._transform(node_transformer, inner_context),
             name=self.name,
@@ -364,29 +387,37 @@ class ClassDef(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     decorator_list: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -409,7 +440,9 @@ class ClassDef(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = ClassDef(
             name=self.name,
             bases=[x._transform(node_transformer, inner_context) for x in self.bases],
@@ -444,7 +477,7 @@ class ClassDef(stmt):
 class Return(stmt):
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -456,7 +489,9 @@ class Return(stmt):
         return cls(value=None if node.value is None else from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Return(
             value=None
             if self.value is None
@@ -476,8 +511,10 @@ class Delete(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -488,7 +525,9 @@ class Delete(stmt):
         return cls(targets=[from_builtin(x) for x in node.targets])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Delete(
             targets=[
                 x._transform(node_transformer, inner_context) for x in self.targets
@@ -506,14 +545,16 @@ class Delete(stmt):
 @attrs.frozen()
 class Assign(stmt):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     targets: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -537,7 +578,9 @@ class Assign(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Assign(
             value=self.value._transform(node_transformer, inner_context),
             targets=[
@@ -558,14 +601,13 @@ class Assign(stmt):
 @attrs.frozen()
 class AugAssign(stmt):
     op: operator = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: operator),
-        converter=unwrap_underscore,
+        validator=ProxyInstanceOfValidator(lambda: operator), converter=unwrap_node
     )
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -584,7 +626,9 @@ class AugAssign(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = AugAssign(
             op=self.op._transform(node_transformer, inner_context),
             target=self.target._transform(node_transformer, inner_context),
@@ -602,15 +646,15 @@ class AugAssign(stmt):
 @attrs.frozen()
 class AnnAssign(stmt):
     annotation: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     simple: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -632,7 +676,9 @@ class AnnAssign(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = AnnAssign(
             annotation=self.annotation._transform(node_transformer, inner_context),
             simple=self.simple,
@@ -654,24 +700,28 @@ class AnnAssign(stmt):
 @attrs.frozen()
 class For(stmt):
     iter: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -699,7 +749,9 @@ class For(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = For(
             iter=self.iter._transform(node_transformer, inner_context),
             target=self.target._transform(node_transformer, inner_context),
@@ -724,24 +776,28 @@ class For(stmt):
 @attrs.frozen()
 class AsyncFor(stmt):
     iter: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -769,7 +825,9 @@ class AsyncFor(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = AsyncFor(
             iter=self.iter._transform(node_transformer, inner_context),
             target=self.target._transform(node_transformer, inner_context),
@@ -794,21 +852,25 @@ class AsyncFor(stmt):
 @attrs.frozen()
 class While(stmt):
     test: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -827,7 +889,9 @@ class While(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = While(
             test=self.test._transform(node_transformer, inner_context),
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -849,21 +913,25 @@ class While(stmt):
 @attrs.frozen()
 class If(stmt):
     test: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -882,7 +950,9 @@ class If(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = If(
             test=self.test._transform(node_transformer, inner_context),
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -907,15 +977,19 @@ class With(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -939,7 +1013,9 @@ class With(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = With(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
             items=[x._transform(node_transformer, inner_context) for x in self.items],
@@ -963,15 +1039,19 @@ class AsyncWith(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     items: Sequence[withitem] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: withitem)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     type_comment: Optional[str] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: str)),
@@ -995,7 +1075,9 @@ class AsyncWith(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = AsyncWith(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
             items=[x._transform(node_transformer, inner_context) for x in self.items],
@@ -1016,14 +1098,16 @@ class AsyncWith(stmt):
 @attrs.frozen()
 class Match(stmt):
     subject: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     cases: Sequence[match_case] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: match_case)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1039,7 +1123,9 @@ class Match(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Match(
             subject=self.subject._transform(node_transformer, inner_context),
             cases=[x._transform(node_transformer, inner_context) for x in self.cases],
@@ -1058,12 +1144,12 @@ class Match(stmt):
 class Raise(stmt):
     cause: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     exc: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -1081,7 +1167,9 @@ class Raise(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Raise(
             cause=None
             if self.cause is None
@@ -1106,29 +1194,37 @@ class Try(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     finalbody: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     handlers: Sequence[excepthandler] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: excepthandler)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     orelse: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1149,7 +1245,9 @@ class Try(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Try(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
             finalbody=[
@@ -1181,11 +1279,11 @@ class Try(stmt):
 @attrs.frozen()
 class Assert(stmt):
     test: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     msg: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -1203,7 +1301,9 @@ class Assert(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Assert(
             test=self.test._transform(node_transformer, inner_context),
             msg=None
@@ -1225,8 +1325,10 @@ class Import(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1237,7 +1339,9 @@ class Import(stmt):
         return cls(names=[from_builtin(x) for x in node.names])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Import(
             names=[x._transform(node_transformer, inner_context) for x in self.names]
         )
@@ -1263,8 +1367,10 @@ class ImportFrom(stmt):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: alias)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1283,7 +1389,9 @@ class ImportFrom(stmt):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = ImportFrom(
             level=self.level,
             module=self.module,
@@ -1301,7 +1409,10 @@ class ImportFrom(stmt):
 @attrs.frozen()
 class Global(stmt):
     names: Sequence[str] = attrs.field(
-        converter=DeepIterableConverter(convert_identifier), factory=list
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(convert_identifier)
+        ),
     )
 
     def _to_builtin(self):
@@ -1312,7 +1423,9 @@ class Global(stmt):
         return cls(names=node.names)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Global(names=self.names)
         return node_transformer(transformed, context)
 
@@ -1323,7 +1436,10 @@ class Global(stmt):
 @attrs.frozen()
 class Nonlocal(stmt):
     names: Sequence[str] = attrs.field(
-        converter=DeepIterableConverter(convert_identifier), factory=list
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(convert_identifier)
+        ),
     )
 
     def _to_builtin(self):
@@ -1334,7 +1450,9 @@ class Nonlocal(stmt):
         return cls(names=node.names)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Nonlocal(names=self.names)
         return node_transformer(transformed, context)
 
@@ -1345,7 +1463,7 @@ class Nonlocal(stmt):
 @attrs.frozen()
 class Expr(stmt):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1356,7 +1474,9 @@ class Expr(stmt):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Expr(value=self.value._transform(node_transformer, inner_context))
         return node_transformer(transformed, context)
 
@@ -1375,7 +1495,9 @@ class Pass(stmt):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Pass()
         return node_transformer(transformed, context)
 
@@ -1393,7 +1515,9 @@ class Break(stmt):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Break()
         return node_transformer(transformed, context)
 
@@ -1411,7 +1535,9 @@ class Continue(stmt):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Continue()
         return node_transformer(transformed, context)
 
@@ -1426,14 +1552,16 @@ class expr(Node):
 @attrs.frozen()
 class BoolOp(expr):
     op: boolop = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: boolop), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: boolop), converter=unwrap_node
     )
     values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1448,7 +1576,9 @@ class BoolOp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = BoolOp(
             op=self.op._transform(node_transformer, inner_context),
             values=[x._transform(node_transformer, inner_context) for x in self.values],
@@ -1466,10 +1596,10 @@ class BoolOp(expr):
 @attrs.frozen()
 class NamedExpr(expr):
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1482,7 +1612,9 @@ class NamedExpr(expr):
         return cls(target=from_builtin(node.target), value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = NamedExpr(
             target=self.target._transform(node_transformer, inner_context),
             value=self.value._transform(node_transformer, inner_context),
@@ -1498,14 +1630,13 @@ class NamedExpr(expr):
 @attrs.frozen()
 class BinOp(expr):
     left: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     op: operator = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: operator),
-        converter=unwrap_underscore,
+        validator=ProxyInstanceOfValidator(lambda: operator), converter=unwrap_node
     )
     right: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1524,7 +1655,9 @@ class BinOp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = BinOp(
             left=self.left._transform(node_transformer, inner_context),
             op=self.op._transform(node_transformer, inner_context),
@@ -1542,10 +1675,10 @@ class BinOp(expr):
 @attrs.frozen()
 class UnaryOp(expr):
     op: unaryop = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: unaryop), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: unaryop), converter=unwrap_node
     )
     operand: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1556,7 +1689,9 @@ class UnaryOp(expr):
         return cls(op=from_builtin(node.op), operand=from_builtin(node.operand))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = UnaryOp(
             op=self.op._transform(node_transformer, inner_context),
             operand=self.operand._transform(node_transformer, inner_context),
@@ -1572,11 +1707,10 @@ class UnaryOp(expr):
 @attrs.frozen()
 class Lambda(expr):
     args: arguments = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: arguments),
-        converter=unwrap_underscore,
+        validator=ProxyInstanceOfValidator(lambda: arguments), converter=unwrap_node
     )
     body: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1587,7 +1721,9 @@ class Lambda(expr):
         return cls(args=from_builtin(node.args), body=from_builtin(node.body))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Lambda(
             args=self.args._transform(node_transformer, inner_context),
             body=self.body._transform(node_transformer, inner_context),
@@ -1603,13 +1739,13 @@ class Lambda(expr):
 @attrs.frozen()
 class IfExp(expr):
     body: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     orelse: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     test: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1628,7 +1764,9 @@ class IfExp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = IfExp(
             body=self.body._transform(node_transformer, inner_context),
             orelse=self.orelse._transform(node_transformer, inner_context),
@@ -1649,15 +1787,19 @@ class Dict(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     values: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1674,7 +1816,9 @@ class Dict(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Dict(
             keys=[x._transform(node_transformer, inner_context) for x in self.keys],
             values=[x._transform(node_transformer, inner_context) for x in self.values],
@@ -1697,8 +1841,10 @@ class Set(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1709,7 +1855,9 @@ class Set(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Set(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
         )
@@ -1725,14 +1873,16 @@ class Set(expr):
 @attrs.frozen()
 class ListComp(expr):
     elt: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1749,7 +1899,9 @@ class ListComp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = ListComp(
             elt=self.elt._transform(node_transformer, inner_context),
             generators=[
@@ -1769,14 +1921,16 @@ class ListComp(expr):
 @attrs.frozen()
 class SetComp(expr):
     elt: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1793,7 +1947,9 @@ class SetComp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = SetComp(
             elt=self.elt._transform(node_transformer, inner_context),
             generators=[
@@ -1813,17 +1969,19 @@ class SetComp(expr):
 @attrs.frozen()
 class DictComp(expr):
     key: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1842,7 +2000,9 @@ class DictComp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = DictComp(
             key=self.key._transform(node_transformer, inner_context),
             value=self.value._transform(node_transformer, inner_context),
@@ -1864,14 +2024,16 @@ class DictComp(expr):
 @attrs.frozen()
 class GeneratorExp(expr):
     elt: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     generators: Sequence[comprehension] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: comprehension)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -1888,7 +2050,9 @@ class GeneratorExp(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = GeneratorExp(
             elt=self.elt._transform(node_transformer, inner_context),
             generators=[
@@ -1908,7 +2072,7 @@ class GeneratorExp(expr):
 @attrs.frozen()
 class Await(expr):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1919,7 +2083,9 @@ class Await(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Await(
             value=self.value._transform(node_transformer, inner_context)
         )
@@ -1934,7 +2100,7 @@ class Await(expr):
 class Yield(expr):
     value: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -1946,7 +2112,9 @@ class Yield(expr):
         return cls(value=None if node.value is None else from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Yield(
             value=None
             if self.value is None
@@ -1963,7 +2131,7 @@ class Yield(expr):
 @attrs.frozen()
 class YieldFrom(expr):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -1974,7 +2142,9 @@ class YieldFrom(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = YieldFrom(
             value=self.value._transform(node_transformer, inner_context)
         )
@@ -1988,21 +2158,25 @@ class YieldFrom(expr):
 @attrs.frozen()
 class Compare(expr):
     left: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     comparators: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     ops: Sequence[cmpop] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: cmpop)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -2021,7 +2195,9 @@ class Compare(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Compare(
             left=self.left._transform(node_transformer, inner_context),
             comparators=[
@@ -2045,21 +2221,25 @@ class Compare(expr):
 @attrs.frozen()
 class Call(expr):
     func: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     args: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     keywords: Sequence[keyword] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: keyword)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -2078,7 +2258,9 @@ class Call(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Call(
             func=self.func._transform(node_transformer, inner_context),
             args=[x._transform(node_transformer, inner_context) for x in self.args],
@@ -2102,7 +2284,7 @@ class Call(expr):
 @attrs.frozen()
 class FormattedValue(expr):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     conversion: Optional[int] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: int)),
@@ -2110,7 +2292,7 @@ class FormattedValue(expr):
     )
     format_spec: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -2134,7 +2316,9 @@ class FormattedValue(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = FormattedValue(
             value=self.value._transform(node_transformer, inner_context),
             conversion=self.conversion,
@@ -2157,8 +2341,10 @@ class JoinedStr(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -2169,7 +2355,9 @@ class JoinedStr(expr):
         return cls(values=[from_builtin(x) for x in node.values])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = JoinedStr(
             values=[x._transform(node_transformer, inner_context) for x in self.values]
         )
@@ -2198,7 +2386,9 @@ class Constant(expr):
         return cls(value=node.value, kind=node.kind)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Constant(value=self.value, kind=self.kind)
         return node_transformer(transformed, context)
 
@@ -2210,7 +2400,7 @@ class Constant(expr):
 class Attribute(expr):
     attr: str = attrs.field(converter=convert_identifier)
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -2221,7 +2411,9 @@ class Attribute(expr):
         return cls(attr=node.attr, value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Attribute(
             attr=self.attr, value=self.value._transform(node_transformer, inner_context)
         )
@@ -2235,10 +2427,10 @@ class Attribute(expr):
 @attrs.frozen()
 class Subscript(expr):
     slice: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -2249,7 +2441,9 @@ class Subscript(expr):
         return cls(slice=from_builtin(node.slice), value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Subscript(
             slice=self.slice._transform(node_transformer, inner_context),
             value=self.value._transform(node_transformer, inner_context),
@@ -2265,7 +2459,7 @@ class Subscript(expr):
 @attrs.frozen()
 class Starred(expr):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -2276,7 +2470,9 @@ class Starred(expr):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Starred(
             value=self.value._transform(node_transformer, inner_context)
         )
@@ -2299,7 +2495,9 @@ class Name(expr):
         return cls(id=node.id)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Name(id=self.id)
         return node_transformer(transformed, context)
 
@@ -2313,8 +2511,10 @@ class List(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -2325,7 +2525,9 @@ class List(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = List(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
         )
@@ -2344,8 +2546,10 @@ class Tuple(expr):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -2356,7 +2560,9 @@ class Tuple(expr):
         return cls(elts=[from_builtin(x) for x in node.elts])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Tuple(
             elts=[x._transform(node_transformer, inner_context) for x in self.elts]
         )
@@ -2373,17 +2579,17 @@ class Tuple(expr):
 class Slice(expr):
     lower: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     step: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     upper: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -2403,7 +2609,9 @@ class Slice(expr):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Slice(
             lower=None
             if self.lower is None
@@ -2441,7 +2649,9 @@ class Load(expr_context):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Load()
         return node_transformer(transformed, context)
 
@@ -2459,7 +2669,9 @@ class Store(expr_context):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Store()
         return node_transformer(transformed, context)
 
@@ -2477,7 +2689,9 @@ class Del(expr_context):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Del()
         return node_transformer(transformed, context)
 
@@ -2499,7 +2713,9 @@ class And(boolop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = And()
         return node_transformer(transformed, context)
 
@@ -2517,7 +2733,9 @@ class Or(boolop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Or()
         return node_transformer(transformed, context)
 
@@ -2539,7 +2757,9 @@ class Add(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Add()
         return node_transformer(transformed, context)
 
@@ -2557,7 +2777,9 @@ class Sub(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Sub()
         return node_transformer(transformed, context)
 
@@ -2575,7 +2797,9 @@ class Mult(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Mult()
         return node_transformer(transformed, context)
 
@@ -2593,7 +2817,9 @@ class MatMult(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatMult()
         return node_transformer(transformed, context)
 
@@ -2611,7 +2837,9 @@ class Div(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Div()
         return node_transformer(transformed, context)
 
@@ -2629,7 +2857,9 @@ class Mod(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Mod()
         return node_transformer(transformed, context)
 
@@ -2647,7 +2877,9 @@ class Pow(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Pow()
         return node_transformer(transformed, context)
 
@@ -2665,7 +2897,9 @@ class LShift(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = LShift()
         return node_transformer(transformed, context)
 
@@ -2683,7 +2917,9 @@ class RShift(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = RShift()
         return node_transformer(transformed, context)
 
@@ -2701,7 +2937,9 @@ class BitOr(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = BitOr()
         return node_transformer(transformed, context)
 
@@ -2719,7 +2957,9 @@ class BitXor(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = BitXor()
         return node_transformer(transformed, context)
 
@@ -2737,7 +2977,9 @@ class BitAnd(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = BitAnd()
         return node_transformer(transformed, context)
 
@@ -2755,7 +2997,9 @@ class FloorDiv(operator):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = FloorDiv()
         return node_transformer(transformed, context)
 
@@ -2777,7 +3021,9 @@ class Invert(unaryop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Invert()
         return node_transformer(transformed, context)
 
@@ -2795,7 +3041,9 @@ class Not(unaryop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Not()
         return node_transformer(transformed, context)
 
@@ -2813,7 +3061,9 @@ class UAdd(unaryop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = UAdd()
         return node_transformer(transformed, context)
 
@@ -2831,7 +3081,9 @@ class USub(unaryop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = USub()
         return node_transformer(transformed, context)
 
@@ -2853,7 +3105,9 @@ class Eq(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Eq()
         return node_transformer(transformed, context)
 
@@ -2871,7 +3125,9 @@ class NotEq(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = NotEq()
         return node_transformer(transformed, context)
 
@@ -2889,7 +3145,9 @@ class Lt(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Lt()
         return node_transformer(transformed, context)
 
@@ -2907,7 +3165,9 @@ class LtE(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = LtE()
         return node_transformer(transformed, context)
 
@@ -2925,7 +3185,9 @@ class Gt(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Gt()
         return node_transformer(transformed, context)
 
@@ -2943,7 +3205,9 @@ class GtE(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = GtE()
         return node_transformer(transformed, context)
 
@@ -2961,7 +3225,9 @@ class Is(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = Is()
         return node_transformer(transformed, context)
 
@@ -2979,7 +3245,9 @@ class IsNot(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = IsNot()
         return node_transformer(transformed, context)
 
@@ -2997,7 +3265,9 @@ class In(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = In()
         return node_transformer(transformed, context)
 
@@ -3015,7 +3285,9 @@ class NotIn(cmpop):
         return cls()
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = NotIn()
         return node_transformer(transformed, context)
 
@@ -3027,17 +3299,19 @@ class NotIn(cmpop):
 class comprehension(Node):
     is_async: int = attrs.field(validator=ProxyInstanceOfValidator(lambda: int))
     iter: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     target: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     ifs: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -3058,7 +3332,9 @@ class comprehension(Node):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = comprehension(
             is_async=self.is_async,
             iter=self.iter._transform(node_transformer, inner_context),
@@ -3086,15 +3362,17 @@ class ExceptHandler(excepthandler):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     name: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
     )
     type: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -3114,7 +3392,9 @@ class ExceptHandler(excepthandler):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = ExceptHandler(
             body=[x._transform(node_transformer, inner_context) for x in self.body],
             name=self.name,
@@ -3137,41 +3417,51 @@ class ExceptHandler(excepthandler):
 class arguments(Node):
     args: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     kw_defaults: Sequence[expr] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     kwarg: Optional[arg] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     kwonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     posonlyargs: Sequence[arg] = attrs.field(
         validator=attrs.validators.deep_iterable(ProxyInstanceOfValidator(lambda: arg)),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     vararg: Optional[arg] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: arg)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -3199,7 +3489,9 @@ class arguments(Node):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = arguments(
             args=[x._transform(node_transformer, inner_context) for x in self.args],
             defaults=[
@@ -3251,7 +3543,7 @@ class arg(Node):
     arg: str = attrs.field(converter=convert_identifier)
     annotation: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
     type_comment: Optional[str] = attrs.field(
@@ -3278,7 +3570,9 @@ class arg(Node):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = arg(
             arg=self.arg,
             annotation=None
@@ -3297,7 +3591,7 @@ class arg(Node):
 @attrs.frozen()
 class keyword(Node):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     arg: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
@@ -3311,7 +3605,9 @@ class keyword(Node):
         return cls(value=from_builtin(node.value), arg=node.arg)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = keyword(
             value=self.value._transform(node_transformer, inner_context), arg=self.arg
         )
@@ -3337,7 +3633,9 @@ class alias(Node):
         return cls(name=node.name, asname=node.asname)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = alias(name=self.name, asname=self.asname)
         return node_transformer(transformed, context)
 
@@ -3348,11 +3646,11 @@ class alias(Node):
 @attrs.frozen()
 class withitem(Node):
     context_expr: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     optional_vars: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -3374,7 +3672,9 @@ class withitem(Node):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = withitem(
             context_expr=self.context_expr._transform(node_transformer, inner_context),
             optional_vars=None
@@ -3393,18 +3693,20 @@ class withitem(Node):
 @attrs.frozen()
 class match_case(Node):
     pattern: pattern = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: pattern), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: pattern), converter=unwrap_node
     )
     body: Sequence[stmt] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: stmt)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     guard: Optional[expr] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: expr)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -3424,7 +3726,9 @@ class match_case(Node):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = match_case(
             pattern=self.pattern._transform(node_transformer, inner_context),
             body=[x._transform(node_transformer, inner_context) for x in self.body],
@@ -3451,7 +3755,7 @@ class pattern(Node):
 @attrs.frozen()
 class MatchValue(pattern):
     value: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
 
     def _to_builtin(self):
@@ -3462,7 +3766,9 @@ class MatchValue(pattern):
         return cls(value=from_builtin(node.value))
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchValue(
             value=self.value._transform(node_transformer, inner_context)
         )
@@ -3485,7 +3791,9 @@ class MatchSingleton(pattern):
         return cls(value=node.value)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchSingleton(value=self.value)
         return node_transformer(transformed, context)
 
@@ -3499,8 +3807,10 @@ class MatchSequence(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -3511,7 +3821,9 @@ class MatchSequence(pattern):
         return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchSequence(
             patterns=[
                 x._transform(node_transformer, inner_context) for x in self.patterns
@@ -3532,15 +3844,19 @@ class MatchMapping(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: expr)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     rest: Optional[str] = attrs.field(
         converter=attrs.converters.optional(convert_identifier), default=None
@@ -3562,7 +3878,9 @@ class MatchMapping(pattern):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchMapping(
             keys=[x._transform(node_transformer, inner_context) for x in self.keys],
             patterns=[
@@ -3585,24 +3903,31 @@ class MatchMapping(pattern):
 @attrs.frozen()
 class MatchClass(pattern):
     cls: expr = attrs.field(
-        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_underscore
+        validator=ProxyInstanceOfValidator(lambda: expr), converter=unwrap_node
     )
     kwd_attrs: Sequence[str] = attrs.field(
-        converter=DeepIterableConverter(convert_identifier), factory=list
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(convert_identifier)
+        ),
     )
     kwd_patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
     patterns: Sequence[pattern] = attrs.field(
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -3623,7 +3948,9 @@ class MatchClass(pattern):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchClass(
             cls=self.cls._transform(node_transformer, inner_context),
             kwd_attrs=self.kwd_attrs,
@@ -3661,7 +3988,9 @@ class MatchStar(pattern):
         return cls(name=node.name)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchStar(name=self.name)
         return node_transformer(transformed, context)
 
@@ -3676,7 +4005,7 @@ class MatchAs(pattern):
     )
     pattern: Optional[pattern] = attrs.field(
         validator=attrs.validators.optional(ProxyInstanceOfValidator(lambda: pattern)),
-        converter=attrs.converters.optional(unwrap_underscore),
+        converter=attrs.converters.optional(unwrap_node),
         default=None,
     )
 
@@ -3694,7 +4023,9 @@ class MatchAs(pattern):
         )
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchAs(
             name=self.name,
             pattern=None
@@ -3715,8 +4046,10 @@ class MatchOr(pattern):
         validator=attrs.validators.deep_iterable(
             ProxyInstanceOfValidator(lambda: pattern)
         ),
-        converter=DeepIterableConverter(unwrap_underscore),
-        factory=list,
+        factory=tuple,
+        converter=attrs.converters.pipe(
+            unpack_nested, DeepIterableConverter(unwrap_node)
+        ),
     )
 
     def _to_builtin(self):
@@ -3727,7 +4060,9 @@ class MatchOr(pattern):
         return cls(patterns=[from_builtin(x) for x in node.patterns])
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = MatchOr(
             patterns=[
                 x._transform(node_transformer, inner_context) for x in self.patterns
@@ -3759,7 +4094,9 @@ class TypeIgnore(type_ignore):
         return cls(lineno=node.lineno, tag=node.tag)
 
     def _transform(self, node_transformer, context):
-        inner_context = TransformerContext(parents=[self, *context.parents])
+        inner_context = TransformerContext(
+            parents=[self, *context.parents], original=self
+        )
         transformed = TypeIgnore(lineno=self.lineno, tag=self.tag)
         return node_transformer(transformed, context)
 

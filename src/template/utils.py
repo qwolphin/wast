@@ -1,11 +1,10 @@
 import ast
 from functools import wraps
-from inspect import signature
-from typing import Callable, Optional, Sequence, Type, Union
+from typing import Callable, Type
 
 import attrs
 
-from .common import Node, WrappedNode, TransformerContext
+from .common import Node, TransformerContext
 from .nodes import from_builtin, to_builtin
 
 
@@ -20,20 +19,14 @@ def parse(text: str) -> Node:
     return from_builtin(tree)
 
 
-def transform(node: Node, fn) -> Node:
-    assert isinstance(node, Node)
-    ctx = TransformerContext(parents=tuple(), original=node)
-    return node._transform(fn, ctx)
-
-
 NT = Type[Node]
 FnParams = [Node, TransformerContext]
 FilterFn = Callable[FnParams, bool]
 TransformerFn = Callable[FnParams, Node]
 
 
-@attrs.define
-class _transformer:
+@attrs.frozen
+class Transformer:
     """
     Class representing transformer containing zero or more functions
     """
@@ -41,8 +34,8 @@ class _transformer:
     funcs: tuple[TransformerFn] = attrs.field(converter=tuple)
 
     def __or__(self, other):
-        assert isinstance(other, _transformer)
-        return _transformer([*self.funcs, *other.funcs])
+        assert isinstance(other, Transformer)
+        return Transformer((*self.funcs, *other.funcs))
 
     def __call__(self, node, context):
         for fn in self.funcs:
@@ -50,9 +43,14 @@ class _transformer:
 
         return node
 
+    def transform(self, node):
+        assert isinstance(node, Node)
+        ctx = TransformerContext(parents=tuple(), original=node)
+        return node._transform(self, ctx)
 
-@attrs.define
-class transformer:
+
+@attrs.frozen
+class mk_transformer:
     """
     Decorator adding selectors to transformer functions, also allows chaining them like `fn1 | fn1`
     """
@@ -78,4 +76,4 @@ class transformer:
 
             return f(node, context)
 
-        return _transformer([ret])
+        return Transformer([ret])

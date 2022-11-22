@@ -3,12 +3,18 @@ version: "3.8"
 services:
   main:
     build:
-      context: ./src
+      context: .
       args:
         HOST_USER: ${USER?}
         HOST_UID: ${HOST_UID:-1000}
-      #target: requirements
-    command: 'sleep infinity'
+      target: requirements
+    command: 'python3 -m http.server -d /docs 8080'
+    ports:
+      - target: 8080
+        published: 8080
     working_dir: /app
+    environment:
+      WAST_VERSION: 0.0.1
     volumes:
       - "./src:/app"
+      - "./README.md:/README.md"

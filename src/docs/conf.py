@@ -10,11 +10,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import sys
+import os
 from pathlib import Path
-
-# find project
-sys.path.insert(0, str(Path(__file__).parents[1]))
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +20,7 @@ author = "Lumi Akimova"
 copyright = f"2022, {author}"
 
 # The full version, including alpha/beta/rc tags
-release = "0.0.1"  # FIXME
+release = os.environ["WAST_VERSION"]
 
 
 # -- General configuration ---------------------------------------------------

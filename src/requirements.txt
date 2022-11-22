@@ -4,9 +4,10 @@ attrs
 # debug
 traceback-with-variables
 
-# code formatters
+# code style
 black
 isort
+pyflakes
 
 # docs
 sphinx

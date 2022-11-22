@@ -1,6 +1,6 @@
-import attrs
-
 from typing import Sequence
+
+import attrs
 
 
 class Node:

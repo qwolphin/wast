@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import ast
-from typing import Callable, Optional, Sequence, Union
+from typing import Any, Optional, Sequence
 
 import attrs
 
-from .common import Node, WrappedNode, TransformerContext
+from .common import Node, TransformerContext, WrappedNode
 from .validators import (
     DeepIterableConverter,
     ProxyInstanceOfValidator,
     convert_identifier,
-    unwrap_underscore,
+    unwrap_node,
+    unpack_nested,
 )
 
 
@@ -30,7 +31,3 @@ def from_builtin(node: ast.AST) -> Node:
     assert isinstance(node, ast.AST)
     t = node.__class__.__name__
     return NODES[t]._from_builtin(node)
-
-
-class Node:
-    pass

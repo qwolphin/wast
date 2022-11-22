@@ -1,0 +1,93 @@
+stages:
+  - build
+  - test
+  - publish
+  - publish_image
+
+variables:
+  KDSL_VERSION: 0.0.1.post${CI_PIPELINE_IID} # FIXME TODO XXX
+  CI_IMAGE: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}
+  CI_CACHE_IMAGE: ${CI_REGISTRY_IMAGE}:cache
+
+.build_image:
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+  tags:
+    - docker
+  image: docker:stable
+  services:
+    - docker:dind
+  variables:
+    ENABLE_BUILDKIT: 1
+  before_script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+
+'Build':
+  extends: .build_image
+  stage: build
+  script:
+    - docker pull ${CI_CACHE_IMAGE} || true
+    - docker build
+      --target=complete
+      --pull
+      --cache-from ${CI_CACHE_IMAGE}
+      -t ${CI_IMAGE}
+      -t ${CI_CACHE_IMAGE}
+      .
+    - docker push ${CI_IMAGE}
+    - docker push ${CI_CACHE_IMAGE}
+
+
+'Test':
+  stage: test
+  image: ${CI_IMAGE}
+  tags:
+    - docker
+  script:
+    - cd /app
+    - ./build.sh
+    - ./docs_build.sh
+
+.publish:
+  stage: publish
+  image: ${CI_IMAGE}
+  tags: 
+    - docker
+  variables:
+    TWINE_NON_INTERACTIVE: 1
+  script:
+    - cd /app
+    - ./build.sh
+    - python3 setup.py sdist bdist_wheel
+    - twine upload dist/*
+
+'Test PyPI publish':
+  extends: .publish
+  except:
+    - tags
+  variables:
+    TWINE_REPOSITORY: testpypi
+    TWINE_PASSWORD: $TEST_PYPI_PASS
+
+'Real PyPI publish':
+  extends: .publish
+  only:
+    - tags
+  variables:
+    KDSL_VERSION: $CI_COMMIT_REF_NAME
+    TWINE_PASSWORD: $REAL_PYPI_PASS
+
+pages:
+  stage: publish
+  image: ${CI_IMAGE}
+  tags: 
+    - docker
+  script:
+    - cd /app
+    - ./build.sh
+    - ./docs_build.sh
+    - cp -r /docs ${CI_PROJECT_DIR?}/public
+  artifacts:
+    paths:
+      - public

@@ -1,10 +1,12 @@
 from __future__ import annotations
+from itertools import chain
 
 import keyword
-from typing import Any, Callable, Union
+from typing import Any, Callable, Sequence, TypeVar
 
-from . import nodes as n
 from attrs import define, field
+
+from . import nodes as w
 
 
 @define(repr=False)
@@ -52,26 +54,35 @@ class DeepIterableConverter(object):
         )
 
 
-def unwrap_underscore(value):
-    if value.__class__.__name__ == "BoundUnderscore":
+def unwrap_node(value: w.WrappedNode | w.Node) -> w.Node:
+    if isinstance(value, w.WrappedNode):
         return value.__inner__
 
     return value
 
 
-def convert_identifier(value: Union[str | n.Name]) -> str:
-    match value:
+T = TypeVar("T")
+
+
+def unpack_nested(val: Sequence[T | tuple[T, ...] | list[T]]) -> list[T]:
+    return list(
+        chain.from_iterable(x if isinstance(x, (list, tuple)) else [x] for x in val)
+    )
+
+
+def convert_identifier(val: str | w.Name) -> str:
+    match val:
         case str():
-            val = value
-        case n.Name():
-            val = value.id
-        case _:
-            raise TypeError(f"{val} has type {val.__class__}. Must be {str} or n.Name")
+            pass
+        case w.Name():
+            val = val.id
+        case other:
+            raise TypeError(f"{val} has type {val.__class__}. Must be {str} or w.Name")
 
     if keyword.iskeyword(val):
         raise ValueError(f"{val} is a Python keyword")
 
-    if val == "*" and not val.isidentifier():
+    if not val.isidentifier() and val != "*":
         raise ValueError(f"{val} is not a valid Python identifier")
 
     return val

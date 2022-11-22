@@ -1,7 +1,7 @@
 # Python AST Nodes
 
 ```{eval-rst}
-.. automodule:: dev.wast
+.. automodule:: wast.nodes
     :show-inheritance:
     :members:
     :undoc-members:

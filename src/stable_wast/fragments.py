@@ -1,7 +1,7 @@
 from itertools import chain
 from pathlib import Path
 
-from . import nodes as n
+from . import nodes as w
 from .utils import parse
 
 
@@ -21,7 +21,7 @@ def load_fragment(entry):
     assert len(body)
 
     # extract expressions from Expr()
-    if all(isinstance(x, n.Expr) for x in body):
+    if all(isinstance(x, w.Expr) for x in body):
         body = [x.value for x in body]
 
     # extract single statement/expression
