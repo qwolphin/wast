@@ -69,6 +69,7 @@ variables:
   except:
     - tags
   variables:
+    CI_DEBUG_TRACE: 1
     TWINE_REPOSITORY: testpypi
     TWINE_PASSWORD: $TEST_PYPI_PASS
 
