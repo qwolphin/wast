@@ -76,7 +76,7 @@ variables:
   only:
     - tags
   variables:
-    KDSL_VERSION: $CI_COMMIT_REF_NAME
+    WAST_VERSION: $CI_COMMIT_REF_NAME
     TWINE_PASSWORD: $REAL_PYPI_PASS
 
 pages:
